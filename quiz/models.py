@@ -3,6 +3,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
+
 # ==========================================
 # 1. LECTURER MODEL
 # ==========================================
@@ -21,9 +22,9 @@ class Lecturer(models.Model):
 # ==========================================
 class Course(models.Model):
     lecturer = models.ForeignKey(Lecturer, on_delete=models.CASCADE)
-    title = models.CharField(max_length=200)  # Standardized max_length
-    code = models.CharField(max_length=200)    # Standardized max_length
-    exam_name = models.CharField(max_length=200) # Standardized max_length
+    title = models.CharField(max_length=200)
+    code = models.CharField(max_length=200)
+    exam_name = models.CharField(max_length=200)
     duration_minutes = models.IntegerField(default=30)
 
     # Geofencing Parameters
@@ -33,7 +34,7 @@ class Course(models.Model):
 
     show_scores = models.BooleanField(default=False)
 
-    # === NEW DATETIME WINDOW CONTROLS ===
+    # === DATETIME WINDOW CONTROLS ===
     start_time = models.DateTimeField(default=timezone.now, help_text="When students can begin logging in.")
     end_time = models.DateTimeField(default=timezone.now, help_text="When the entry portal closes completely.")
 
@@ -42,7 +43,7 @@ class Course(models.Model):
 
 
 # ==========================================
-# 3. QUESTION MODEL
+# 3. QUESTION MODEL (WITH BUILT-IN IMPORT NORMALIZER)
 # ==========================================
 class Question(models.Model):
     QUESTION_TYPES = [
@@ -52,6 +53,8 @@ class Question(models.Model):
     ]
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     text = models.TextField()
+
+    # Expanded length constraints to ensure loose type boundaries match code layout
     q_type = models.CharField(max_length=200, choices=QUESTION_TYPES, default='MCQ')
 
     # MCQ Options
@@ -65,6 +68,25 @@ class Question(models.Model):
     def __str__(self):
         return self.text[:50]
 
+    def save(self, *args, **kwargs):
+        """
+        🚀 SAFE NORMALIZATION INTERCEPTOR
+        Automatically cleans and maps long excel strings to database keys
+        before saving to prevent character varying(10) production crashes.
+        """
+        if self.q_type:
+            # Clean string spaces and force title casing to match variations
+            clean_type = str(self.q_type).strip().title()
+
+            if clean_type in ['Multiple Choice', 'Mcq', 'M']:
+                self.q_type = 'MCQ'
+            elif clean_type in ['Fill In The Blank', 'Fitb', 'F']:
+                self.q_type = 'FITB'
+            elif clean_type in ['Written Essay', 'Writtenessay', 'Theory', 'Essay', 'T', 'E']:
+                self.q_type = 'THEORY'
+
+        super(Question, self).save(*args, **kwargs)
+
 
 # ==========================================
 # 4. STUDENT SUBMISSION MODEL
@@ -75,7 +97,7 @@ class StudentSubmission(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     submitted_answers = models.TextField(null=True, blank=True)
     score = models.FloatField(default=0.0)
-    submitted_at = models.DateTimeField(auto_now_add=True) # Unified field naming string
+    submitted_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.student_name} - {self.course.code}"
