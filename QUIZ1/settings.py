@@ -101,13 +101,7 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
-
-# Production Static Asset Configuration for WhiteNoise / Vercel
 STATIC_URL = '/static/'
-
-# Change this path to map directly to a root 'static' folder for Vercel's router
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 STORAGES = {
@@ -115,7 +109,6 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        # Standard compressed fallback
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
