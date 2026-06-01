@@ -1,4 +1,4 @@
-﻿asgiref==3.11.1
+asgiref==3.11.1
 Django==6.0.5
 et_xmlfile==2.0.0
 geographiclib==2.1
