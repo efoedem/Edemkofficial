@@ -79,12 +79,12 @@
 
             <div class="input-group">
                 <label>Full Name</label>
-                <input type="text" name="full_name" placeholder="e.g. Prince Edem" required autocomplete="off">
+                <input type="text" id="full_name_input" name="full_name" placeholder="e.g. Prince Edem" required autocomplete="off">
             </div>
 
             <div class="input-group">
                 <label>Index Number</label>
-                <input type="text" name="index_number" placeholder="Enter ID" required autocomplete="off">
+                <input type="text" id="index_number_input" name="index_number" placeholder="Enter ID" required autocomplete="off">
             </div>
 
             <div class="input-group">
@@ -156,7 +156,6 @@
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 function(position) {
-                    // Bind real physical coordinates to hidden inputs
                     document.getElementById('lat_input').value = position.coords.latitude;
                     document.getElementById('lng_input').value = position.coords.longitude;
 
@@ -168,7 +167,6 @@
                     gpsAcquired = false;
                     console.log("Security error caught: ", error.message);
 
-                    // Display clear error states to the student based on failure type
                     if (error.code === error.PERMISSION_DENIED) {
                         $('#gps_feedback').html('✕ Location Access Denied. You must allow location tracking in your browser settings.').css('color', '#dc2626');
                     } else {
@@ -177,9 +175,9 @@
                     checkAndUnlockButton();
                 },
                 {
-                    enableHighAccuracy: false, // FORCES cellular & Wi-Fi triangulation for instant indoor verification
-                    timeout: 12000,            // Allows 12 seconds to compile accurate network triangulation
-                    maximumAge: 60000          // Re-verify coordinates if cache data is older than 60 seconds
+                    enableHighAccuracy: false,
+                    timeout: 12000,
+                    maximumAge: 60000
                 }
             );
         } else {
@@ -188,17 +186,35 @@
         }
     }
 
+    // === 3. 🛡️ INDEX NUMBER CONFIRMATION INTERCEPTOR ===
+    document.getElementById('main_form').addEventListener('submit', function(event) {
+        const rawIndex = document.getElementById('index_number_input').value.trim();
+        const upperIndex = rawIndex.toUpperCase();
+        const courseText = $("#course_select option:selected").text();
+
+        // Display a clean confirmation dialog to ensure no typo locks them out
+        const userConfirmed = confirm(
+            `Please verify your identity before entering the exam room:\n\n` +
+            `• Index Number: ${upperIndex}\n` +
+            `• Examination: ${courseText}\n\n` +
+            `Is your Index Number 100% correct? If it is wrong, you will not be allowed to change it once the session starts.`
+        );
+
+        if (!userConfirmed) {
+            // Cancel form submission if they click "Cancel"
+            event.preventDefault();
+        }
+    });
+
     // Initialize tracking routine on page launch
     $(document).ready(function() {
         acquireStrictLocation();
 
-        // Bind dynamic tap-to-retry action if the signal clips indoors
         $(document).on('click', '#retry_geo', function() {
             acquireStrictLocation();
         });
     });
 
-    // Re-verify anytime they alter selections to block perimeter spoofing
     $('#course_select').change(checkAndUnlockButton);
 </script>
 </body>
