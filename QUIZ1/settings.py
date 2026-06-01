@@ -104,17 +104,21 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Production Static Asset Configuration for WhiteNoise / Vercel
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = '/static/'
+
+# Change this path to map directly to a root 'static' folder for Vercel's router
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        # Changed this line to handle missing files gracefully without throwing 500 errors
+        # Standard compressed fallback
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 

@@ -10,16 +10,11 @@
   "routes": [
     {
       "src": "/static/(.*)",
-      "dest": "/static/$1"
+      "dest": "static/$1"
     },
     {
       "src": "(.*)",
       "dest": "QUIZ1/wsgi.py"
     }
-  ],
-  "build": {
-    "env": {
-      "DJANGO_SETTINGS_MODULE": "QUIZ1.settings"
-    }
-  }
+  ]
 }
