@@ -52,7 +52,7 @@ class Question(models.Model):
     ]
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     text = models.TextField()
-    q_type = models.CharField(max_length=10, choices=QUESTION_TYPES, default='MCQ')
+    q_type = models.CharField(max_length=200, choices=QUESTION_TYPES, default='MCQ')
 
     # MCQ Options
     option_a = models.CharField(max_length=255, blank=True, null=True)
