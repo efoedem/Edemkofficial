@@ -3,7 +3,8 @@
   "builds": [
     {
       "src": "QUIZ1/wsgi.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "15mb" }
     }
   ],
   "routes": [
@@ -15,5 +16,10 @@
       "src": "(.*)",
       "dest": "QUIZ1/wsgi.py"
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "DJANGO_SETTINGS_MODULE": "QUIZ1.settings"
+    }
+  }
 }
