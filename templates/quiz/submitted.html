@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz Submitted</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f7f6; }
+        .card { background: white; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .score-circle { width: 100px; height: 100px; line-height: 100px; border-radius: 50%; background: #2563eb; color: white; font-size: 2rem; margin: 20px auto; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Congratulations, {{ student_name }}!</h1>
+        <p>Your examination script has been safely processed.</p>
+
+        {% if show_score %}
+            <div class="score-box">
+                <h3>Calculated Score:</h3>
+                <div class="score-circle">{{ score }}</div>
+                <p>Points obtained on this examination tier.</p>
+            </div>
+        {% else %}
+            <p style="color: #64748b;">Results will be distributed following formal moderator review intervals.</p>
+        {% endif %}
+        <br>
+        <a href="{% url 'login' %}" style="color: #2563eb; text-decoration: none;">Exit Window</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,78 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block after_field_sets %}
+    <script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function() {
+            // Locate the standard Django Admin form fields for coordinates
+            const latField = document.getElementById("id_latitude");
+            const lngField = document.getElementById("id_longitude");
+
+            if (latField && lngField) {
+                // Find the container row of the latitude field to anchor our button row right above it
+                const latRow = latField.closest(".form-row");
+
+                if (latRow) {
+                    // Create a clean container row styled to blend with the Django Admin theme
+                    const btnContainer = document.createElement("div");
+                    btnContainer.className = "form-row";
+                    btnContainer.style.padding = "10px 0 15px 170px"; // Tidy alignment match with standard admin labels
+
+                    // Build the interactive button element
+                    const geoBtn = document.createElement("button");
+                    geoBtn.type = "button";
+                    geoBtn.className = "button";
+                    geoBtn.innerHTML = "📍 Use My Current Real-Time Location";
+                    geoBtn.style.background = "#2563eb";
+                    geoBtn.style.color = "#ffffff";
+                    geoBtn.style.fontWeight = "bold";
+                    geoBtn.style.padding = "10px 16px";
+                    geoBtn.style.border = "none";
+                    geoBtn.style.borderRadius = "4px";
+                    geoBtn.style.cursor = "pointer";
+                    geoBtn.style.transition = "background 0.2s, transform 0.1s";
+
+                    geoBtn.onmouseover = function() { this.style.background = "#1d4ed8"; };
+                    geoBtn.onmouseout = function() { this.style.background = "#2563eb"; };
+
+                    // Geolocation extraction script logic
+                    geoBtn.onclick = function() {
+                        if (navigator.geolocation) {
+                            geoBtn.innerHTML = "Fetching GPS Coordinates... 📡";
+                            geoBtn.style.background = "#d97706";
+
+                            navigator.geolocation.getCurrentPosition(
+                                function(position) {
+                                    // Inject precise floating-point values directly into the input fields
+                                    latField.value = position.coords.latitude.toFixed(6);
+                                    lngField.value = position.coords.longitude.toFixed(6);
+
+                                    geoBtn.innerHTML = "✅ Coordinates Filled Automatically!";
+                                    geoBtn.style.background = "#10b981";
+
+                                    // Reset button text status after a brief delay
+                                    setTimeout(() => {
+                                        geoBtn.innerHTML = "📍 Use My Current Real-Time Location";
+                                        geoBtn.style.background = "#2563eb";
+                                    }, 3000);
+                                },
+                                function(error) {
+                                    alert("Location Access Error: " + error.message + "\nPlease check your browser's site permissions and ensure your device's GPS is enabled.");
+                                    geoBtn.innerHTML = "❌ Fetching Failed";
+                                    geoBtn.style.background = "#ef4444";
+                                },
+                                { enableHighAccuracy: true, timeout: 10000 }
+                            );
+                        } else {
+                            alert("Your browser does not support HTML5 secure geolocation tracking.");
+                        }
+                    };
+
+                    btnContainer.appendChild(geoBtn);
+                    // Mount the button row directly into the DOM right above the Latitude fields
+                    latRow.parentNode.insertBefore(btnContainer, latRow);
+                }
+            }
+        });
+    </script>
+{% endblock %}

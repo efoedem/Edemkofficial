@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Portal | Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --glass: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            color: #1e293b;
+        }
+
+        .login-card {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        h2 { font-weight: 600; margin-bottom: 0.5rem; color: #0f172a; }
+        p.subtitle { font-size: 0.875rem; color: #64748b; margin-bottom: 2rem; }
+        .input-group { text-align: left; margin-bottom: 1.25rem; }
+        label { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; color: #475569; }
+        input, select { width: 100%; padding: 0.75rem 1rem; border-radius: 0.75rem; border: 1px solid #cbd5e1; background: white; font-size: 1rem; box-sizing: border-box; }
+        button { width: 100%; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 0.75rem; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        .error-msg { color: #dc2626; font-size: 0.875rem; margin-bottom: 1rem; font-weight: 600; }
+        .gps-status { font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 0.5rem; text-align: left; }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <h2>Student Login</h2>
+        <p class="subtitle">Enter your details to begin the examination</p>
+
+        {% if error %}
+            <div class="error-msg">{{ error }}</div>
+        {% endif %}
+
+        <form action="{% url 'start_quiz' %}" method="POST" id="main_form">
+            {% csrf_token %}
+
+            <input type="hidden" name="lat" id="lat_input">
+            <input type="hidden" name="lng" id="lng_input">
+
+            <div class="input-group">
+                <label>Full Name</label>
+                <input type="text" name="full_name" placeholder="e.g. Prince Edem" required>
+            </div>
+
+            <div class="input-group">
+                <label>Index Number</label>
+                <input type="text" name="index_number" placeholder="Enter ID" required>
+            </div>
+
+            <div class="input-group">
+                <label>Select Lecturer</label>
+                <select id="lecturer_select" name="lecturer_id" required>
+                    <option value="" disabled selected>Choose Lecturer...</option>
+                    {% for l in lecturers %}
+                        <option value="{{ l.id }}">{{ l }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div id="course_section" class="input-group" style="display:none;">
+                <label>Course Code</label>
+                <select id="course_select" name="course_id" required></select>
+            </div>
+
+            <div id="gps_feedback" class="gps-status" style="color: #d97706;">Acquiring satellite location fix...</div>
+
+            <button type="submit" id="start_btn" disabled>Waiting for GPS Fix...</button>
+        </form>
+    </div>
+
+    <script>
+        let gpsAcquired = false;
+
+        // 1. AJAX logic to fetch courses dynamically
+        $('#lecturer_select').change(function() {
+            const lecturerId = $(this).val();
+            if (lecturerId) {
+                $.ajax({
+                    url: "{% url 'get_courses' %}",
+                    data: { 'lecturer_id': lecturerId },
+                    success: function(data) {
+                        $('#course_select').empty();
+                        $('#course_select').append('<option value="" disabled selected>Select Course...</option>');
+                        data.forEach(course => {
+                            $('#course_select').append(`<option value="${course.id}">${course.code} - ${course.title}</option>`);
+                        });
+                        $('#course_section').show();
+
+                        // Only enable the button if GPS has already finished loading
+                        if (gpsAcquired) {
+                            $('#start_btn').prop('disabled', false).text('Start Quiz Session');
+                        }
+                    }
+                });
+            }
+        });
+
+        // 2. Geolocation safety logic execution
+        $(document).ready(function() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        // Bind coordinates securely to inputs
+                        document.getElementById('lat_input').value = position.coords.latitude;
+                        document.getElementById('lng_input').value = position.coords.longitude;
+
+                        gpsAcquired = true;
+                        $('#gps_feedback').text('✓ GPS Location Secure').style;
+                        $('#gps_feedback').css('color', '#059669');
+
+                        // If the lecturer/course dropdowns are already selected, unleash the button
+                        if ($('#course_select').val() || $('#lecturer_select').val()) {
+                            $('#start_btn').prop('disabled', false).text('Start Quiz Session');
+                        }
+                    },
+                    function(error) {
+                        $('#gps_feedback').text('✕ Location Access Denied').css('color', '#dc2626');
+                        if (error.code == error.PERMISSION_DENIED) {
+                            alert("ACCESS RESTRICTED: You must allow location tracking access to clear security criteria.");
+                        }
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            } else {
+                alert("Geolocation tracking options missing on this host engine browser.");
+            }
+        });
+    </script>
+</body>
+</html>

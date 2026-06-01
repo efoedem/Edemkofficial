@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{% url 'import_questions_page' %}" class="addlink" style="background: #10b981 !important; color: white !important; font-weight: bold;">
+            📥 Import Questions (Excel/Word)
+        </a>
+    </li>
+    {{ block.super }}
+{% endblock %}

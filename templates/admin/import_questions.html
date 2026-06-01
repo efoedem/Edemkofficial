@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    &rsaquo; <a href="/admin/quiz/">Quiz</a>
+    &rsaquo; <a href="/admin/quiz/question/">Questions</a>
+    &rsaquo; Import
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" style="max-width: 600px; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <h2 style="margin-top: 0; color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Bulk Import Questions</h2>
+    <p style="color: #666; margin-bottom: 20px;">Supported formats: <strong>Excel (.xlsx), Word (.docx), PDF (.pdf), and CSV (.csv)</strong>.</p>
+
+    <form action="{% url 'import_questions_all_formats' %}" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #444;">Select Course Target:</label>
+            <select name="course_id" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                <option value="" disabled selected>-- Choose a Course --</option>
+                {% for course in courses %}
+                    <option value="{{ course.id }}">{{ course.code }} - {{ course.title }} ({{ course.exam_name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #444;">Upload Document:</label>
+            <input type="file" name="uploaded_document" accept=".csv, .xlsx, .docx, .pdf" required
+                   style="width: 100%; padding: 10px; background: #f9f9f9; border: 1px dashed #bbb; border-radius: 4px;">
+        </div>
+
+        <div>
+            <button type="submit" class="default" style="background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px;">
+                Confirm & Import Questions
+            </button>
+            <a href="/admin/quiz/question/" style="margin-left: 15px; color: #666; text-decoration: none; font-size: 14px;">Cancel</a>
+        </div>
+    </form>
+</div>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 6px; margin-bottom: 25px;">
+    <h4 style="margin: 0 0 8px 0; color: #1e40af; font-size: 14px;">📥 Download Reference Formatting Templates:</h4>
+    <p style="margin: 0 0 12px 0; font-size: 13px; color: #1e3a8a;">Ensure files follow the exact column layouts before uploading to prevent file structural sync processing rejections.</p>
+
+    <div style="display: flex; gap: 10px;">
+        <a href="{% url 'download_excel_template' %}" style="background: #10b981; color: white; text-decoration: none; padding: 8px 14px; border-radius: 4px; font-size: 13px; font-weight: bold; display: inline-flex; align-items: center;">
+            📊 Download Excel Blueprint (.xlsx)
+        </a>
+        <a href="{% url 'download_word_template' %}" style="background: #3b82f6; color: white; text-decoration: none; padding: 8px 14px; border-radius: 4px; font-size: 13px; font-weight: bold; display: inline-flex; align-items: center;">
+            📝 Download Word Blueprint (.docx)
+        </a>
+    </div>
+</div>
+{% endblock %}

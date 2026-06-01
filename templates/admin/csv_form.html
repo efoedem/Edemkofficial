@@ -1,0 +1,25 @@
+{% extends 'admin/base_site.html' %}
+{% block content %}
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+        <h2>1. Download Template</h2>
+        <p>Select the type of question to download the specific CSV format:</p>
+        <div style="margin-bottom: 20px;">
+            <a href="{% url 'admin:download_template' 'MCQ' %}" style="padding: 8px 12px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin-right: 10px;">MCQ Template</a>
+            <a href="{% url 'admin:download_template' 'FITB' %}" style="padding: 8px 12px; background: #17a2b8; color: white; text-decoration: none; border-radius: 4px; margin-right: 10px;">Fill-In Template</a>
+            <a href="{% url 'admin:download_template' 'TXT' %}" style="padding: 8px 12px; background: #ffc107; color: black; text-decoration: none; border-radius: 4px;">Theory Template</a>
+        </div>
+
+        <hr>
+
+        <h2>2. Upload Questions</h2>
+        <form action="." method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div style="margin-bottom: 15px;">
+                {{ form.as_p }}
+            </div>
+            <button type="submit" style="background: #417690; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                Confirm & Import Questions
+            </button>
+        </form>
+    </div>
+{% endblock %}
