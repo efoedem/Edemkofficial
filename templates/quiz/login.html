@@ -131,7 +131,7 @@
                         document.getElementById('lng_input').value = position.coords.longitude;
 
                         gpsAcquired = true;
-                        $('#gps_feedback').text('✓ GPS Location Secure').style;
+                        $('#gps_feedback').text('✓ GPS Location Secure');
                         $('#gps_feedback').css('color', '#059669');
 
                         // If the lecturer/course dropdowns are already selected, unleash the button
@@ -145,7 +145,11 @@
                             alert("ACCESS RESTRICTED: You must allow location tracking access to clear security criteria.");
                         }
                     },
-                    { enableHighAccuracy: true, timeout: 10000 }
+                    {
+                        enableHighAccuracy: false, // 🚀 Bypasses indoor satellite lock issues using instant cell network triangulation
+                        timeout: 15000,            // Extended response window to 15 seconds
+                        maximumAge: 300000         // Allows using valid cached device locations up to 5 minutes old
+                    }
                 );
             } else {
                 alert("Geolocation tracking options missing on this host engine browser.");
