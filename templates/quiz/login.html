@@ -97,10 +97,12 @@
     <script>
     let gpsAcquired = false;
 
-    // Helper function to safely unlock the start button
+    // Helper function to safely unlock the start button only if form rules and location are valid
     function checkAndUnlockButton() {
-        if ($('#course_select').val() || $('#lecturer_select').val()) {
+        if (gpsAcquired && ($('#course_select').val() || $('#lecturer_select').val())) {
             $('#start_btn').prop('disabled', false).text('Start Quiz Session');
+        } else if (!gpsAcquired) {
+            $('#start_btn').prop('disabled', true).text('Waiting for Verified Location...');
         }
     }
 
@@ -118,61 +120,64 @@
                         $('#course_select').append(`<option value="${course.id}">${course.code} - ${course.title}</option>`);
                     });
                     $('#course_section').show();
-
-                    // Check if we can unlock the button now
                     checkAndUnlockButton();
                 }
             });
         }
     });
 
-    // 2. Geolocation safety logic execution
-    $(document).ready(function() {
-        // FAILSAFE: If the phone takes more than 5 seconds to load GPS, auto-unlock as a fallback
-        setTimeout(function() {
-            if (!gpsAcquired) {
-                console.log("GPS timeout reached. Activating software location fallback coordinates.");
-                document.getElementById('lat_input').value = "0.0";
-                document.getElementById('lng_input').value = "0.0";
-                gpsAcquired = true;
-                $('#gps_feedback').text('✓ Location Active (Network Fallback)').css('color', '#059669');
-                checkAndUnlockButton();
-            }
-        }, 5000);
+    // 2. Strict Geolocation Core Engine
+    function acquireStrictLocation() {
+        gpsAcquired = false;
+        $('#gps_feedback').text('Acquiring secure exam hall coordinates...').css('color', '#d97706');
+        $('#start_btn').prop('disabled', true).text('Verifying Location...');
 
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 function(position) {
+                    // Bind real physical coordinates to hidden inputs
                     document.getElementById('lat_input').value = position.coords.latitude;
                     document.getElementById('lng_input').value = position.coords.longitude;
 
                     gpsAcquired = true;
-                    $('#gps_feedback').text('✓ GPS Location Secure').css('color', '#059669'); // Fixed typo here
+                    $('#gps_feedback').text('✓ Location Verified Natively').css('color', '#059669');
                     checkAndUnlockButton();
                 },
                 function(error) {
-                    console.log("Geolocation error caught: ", error.message);
-                    // Instead of locking them out, feed fallback coordinates so they can take the test
-                    document.getElementById('lat_input').value = "0.0";
-                    document.getElementById('lng_input').value = "0.0";
-                    gpsAcquired = true;
-                    $('#gps_feedback').text('✓ Location Tracked (Device Default)').css('color', '#059669');
+                    gpsAcquired = false;
+                    console.log("Security error caught: ", error.message);
+
+                    // Display clear error states to the student based on failure type
+                    if (error.code === error.PERMISSION_DENIED) {
+                        $('#gps_feedback').html('✕ Location Access Denied. You must allow location tracking in your browser settings.').css('color', '#dc2626');
+                    } else {
+                        $('#gps_feedback').html('✕ Network Signal Weak. <span id="retry_geo" style="text-decoration: underline; cursor: pointer; font-weight: bold;">Tap here to retry connection</span>').css('color', '#dc2626');
+                    }
                     checkAndUnlockButton();
                 },
                 {
-                    enableHighAccuracy: false,
-                    timeout: 4000,
-                    maximumAge: 300000
+                    enableHighAccuracy: false, // 🚀 FORCES cellular & Wi-Fi triangulation for instant indoor verification
+                    timeout: 12000,            // Allows 12 seconds to compile accurate network triangulation
+                    maximumAge: 60000          // Re-verify coordinates if cache data is older than 60 seconds
                 }
             );
         } else {
-            // Browser doesn't support geolocation at all
-            document.getElementById('lat_input').value = "0.0";
-            document.getElementById('lng_input').value = "0.0";
-            gpsAcquired = true;
-            checkAndUnlockButton();
+            $('#gps_feedback').text('✕ Browser security rules unsupported. Use Chrome or Safari.').css('color', '#dc2626');
         }
+    }
+
+    // Initialize tracking routine on page launch
+    $(document).ready(function() {
+        acquireStrictLocation();
+
+        // Bind dynamic tap-to-retry action if the signal clips indoors
+        $(document).on('click', '#retry_geo', function() {
+            acquireStrictLocation();
+        });
     });
+
+    // Re-verify anytime they try to alter selections to block perimeter spoofing
+    $('#course_select').change(checkAndUnlockButton);
 </script>
 </body>
 </html>
