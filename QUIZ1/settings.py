@@ -21,6 +21,7 @@ ALLOWED_HOSTS = ['.vercel.app', 'now.sh', '127.0.0.1', 'localhost', '*']
 # Application definition
 
 INSTALLED_APPS = [
+    'admin_argon',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
