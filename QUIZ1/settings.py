@@ -111,7 +111,8 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        # Changed this line to handle missing files gracefully without throwing 500 errors
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
