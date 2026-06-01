@@ -4,6 +4,7 @@ import io
 import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
+from django.contrib import messages
 from geopy.distance import geodesic
 from .models import Lecturer, Course, Question, StudentSubmission
 from django.utils import timezone
@@ -25,25 +26,43 @@ def get_courses(request):
     return JsonResponse(list(courses), safe=False)
 
 
-
 def start_quiz(request):
     if request.method == "POST":
         course_id = request.POST.get('course_id')
-        full_name = request.POST.get('full_name')
-        index_number = request.POST.get('index_number')
+        full_name = request.POST.get('full_name', '').strip()
+
+        # Standardize the incoming index number to uppercase format
+        index_number = request.POST.get('index_number', '').strip().upper()
+
         user_lat = request.POST.get('lat')
         user_lng = request.POST.get('lng')
 
-        if not course_id:
-            return redirect('login')
+        # Basic identity validation gatekeeper
+        if not course_id or not index_number or not full_name:
+            return render(request, 'quiz/login.html', {
+                'lecturers': Lecturer.objects.all(),
+                'error': "ACCESS DENIED: All verification fields (Full Name, Index Number, and Course) must be filled."
+            })
 
         course = get_object_or_404(Course, id=course_id)
 
-        # === 1. SECURE DATETIME GATEKEEPER ===
+        # === 1. 🛡️ DUPLICATE ENTRANCE PERMISSION CONTROLLER ===
+        # Blocks students from starting the exact same examination session twice
+        already_submitted = StudentSubmission.objects.filter(
+            index_number=index_number,
+            course=course
+        ).exists()
+
+        if already_submitted:
+            return render(request, 'quiz/login.html', {
+                'lecturers': Lecturer.objects.all(),
+                'error': f"SECURITY LOCKOUT: Index Number {index_number} has already started or completed this examination session."
+            })
+
+        # === 2. SECURE DATETIME GATEKEEPER ===
         current_time = timezone.now()
 
         if current_time < course.start_time:
-            # Format times neatly for student readability
             expected_start = course.start_time.strftime("%I:%M %p (%d %b)")
             return render(request, 'quiz/login.html', {
                 'lecturers': Lecturer.objects.all(),
@@ -56,7 +75,7 @@ def start_quiz(request):
                 'error': "ACCESS DENIED: The examination entry portal window closed for this course session."
             })
 
-        # === 2. GEOLOCATION PERIMETER VERIFICATION ===
+        # === 3. GEOLOCATION PERIMETER VERIFICATION ===
         if user_lat and user_lng:
             try:
                 student_coords = (float(user_lat), float(user_lng))
@@ -92,14 +111,19 @@ def start_quiz(request):
 
 def submit_quiz(request):
     if request.method == "POST":
-        full_name = request.POST.get('full_name', 'Unknown Student')
-        index_number = request.POST.get('index_number', '000000')
+        full_name = request.POST.get('full_name', 'Unknown Student').strip()
+        index_number = request.POST.get('index_number', '000000').strip().upper()
         course_id = request.POST.get('course_id')
-        security_breach = request.POST.get('security_breach', 'false') # Captures the cheat flag
-
-        answers = {key: value for key, value in request.POST.items() if key.startswith('q')}
+        security_breach = request.POST.get('security_breach', 'false')
 
         course_obj = get_object_or_404(Course, id=course_id)
+
+        # Double check submission existence directly at the database submission pipeline
+        if StudentSubmission.objects.filter(index_number=index_number, course=course_obj).exists():
+            return HttpResponse("Form processing rejected: Duplicate paper submission detected for this index profile.",
+                                status=403)
+
+        answers = {key: value for key, value in request.POST.items() if key.startswith('q')}
         all_questions = Question.objects.filter(course=course_obj)
 
         correct_count = 0
@@ -109,7 +133,6 @@ def submit_quiz(request):
                 if str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
                     correct_count += 1
 
-        # Append a flag to the student's entry if they were auto-submitted for cheating
         display_name = full_name
         if security_breach == "true":
             display_name += " [⚠️ TERMINATED FOR TAB SWITCHING]"
@@ -131,7 +154,7 @@ def submit_quiz(request):
 
 
 # ==========================================================
-#             NEW ADVANCED BULK IMPORT ENGINE VIEWS
+#             ADVANCED BULK IMPORT ENGINE VIEWS
 # ==========================================================
 
 def import_questions_page(request):
@@ -156,6 +179,13 @@ def import_questions_all_formats(request):
 
     ext = os.path.splitext(uploaded_file.name)[1].lower()
 
+    # Dictionary helper maps document strings smoothly to database choice keys
+    QTYPE_MAP = {
+        'MCQ': 'MCQ', 'MULTIPLE CHOICE': 'MCQ', 'MULTIPLE_CHOICE': 'MCQ',
+        'FITB': 'FITB', 'FILL IN THE BLANK': 'FITB', 'FILL_IN_THE_BLANK': 'FITB',
+        'THEORY': 'THEORY', 'WRITTEN ESSAY': 'THEORY', 'ESSAY': 'THEORY'
+    }
+
     try:
         # === 1. DIRECT MICROSOFT EXCEL PARSER (.xlsx) ===
         if ext == '.xlsx':
@@ -165,8 +195,7 @@ def import_questions_all_formats(request):
             for row in sheet.iter_rows(min_row=2, values_only=True):
                 if row and len(row) >= 7 and row[0]:
                     raw_type = str(row[1]).strip().upper()
-                    # Normalizes explicitly to match your Model admin choices dropdown text string
-                    clean_type = "Multiple Choice" if raw_type in ["MCQ", "MULTIPLE CHOICE"] else str(row[1]).strip()
+                    clean_type = QTYPE_MAP.get(raw_type, 'MCQ')
 
                     Question.objects.create(
                         course=course_obj,
@@ -190,8 +219,8 @@ def import_questions_all_formats(request):
 
                     cells = [cell.text.strip() for cell in row.cells]
                     if len(cells) >= 7 and cells[0]:
-                        raw_type = cells[1].upper()
-                        clean_type = "Multiple Choice" if raw_type in ["MCQ", "MULTIPLE CHOICE"] else cells[1]
+                        raw_type = cells[1].strip().upper()
+                        clean_type = QTYPE_MAP.get(raw_type, 'MCQ')
 
                         Question.objects.create(
                             course=course_obj,
@@ -200,7 +229,7 @@ def import_questions_all_formats(request):
                             correct_answer=cells[6]
                         )
             else:
-                return HttpResponse("Word document parsing error: Could not find any structured data table inside.",
+                return HttpResponse("Word document parsing error: Could not find structured table grid layout.",
                                     status=400)
 
         # === 3. PORTABLE DOCUMENT FORMAT SCANNER (.pdf) ===
@@ -215,7 +244,7 @@ def import_questions_all_formats(request):
                 parts = line.split(',')
                 if len(parts) >= 7 and not parts[0].lower().startswith('text'):
                     raw_type = parts[1].strip().upper()
-                    clean_type = "Multiple Choice" if raw_type in ["MCQ", "MULTIPLE CHOICE"] else parts[1].strip()
+                    clean_type = QTYPE_MAP.get(raw_type, 'MCQ')
 
                     Question.objects.create(
                         course=course_obj,
@@ -240,7 +269,7 @@ def import_questions_all_formats(request):
             for row in reader:
                 if len(row) >= 7 and row[0]:
                     raw_type = row[1].strip().upper()
-                    clean_type = "Multiple Choice" if raw_type in ["MCQ", "MULTIPLE CHOICE"] else row[1].strip()
+                    clean_type = QTYPE_MAP.get(raw_type, 'MCQ')
 
                     Question.objects.create(
                         course=course_obj,
