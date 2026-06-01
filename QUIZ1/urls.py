@@ -2,15 +2,29 @@ from django.contrib import admin
 from django.urls import path
 from django.core.management import call_command
 from django.http import HttpResponse
+from django.contrib.auth.models import User  # <-- Required for superuser provisioning
 from quiz import views
 
-# Temporary development function to run migrations over the web
+
+# Temporary development function to run migrations and create a superuser over the web
 def run_migrations_view(request):
     try:
+        # 1. Execute database table migrations on Neon Postgres
         call_command('migrate', interactive=False)
-        return HttpResponse("🚀 Database tables created successfully on Neon Postgres!")
+
+        # 2. Provision admin credentials safely
+        username = "admin"
+        email = "admin@example.com"
+        password = "Titivate12345@$"  # <-- Change this to your preferred password!
+
+        if not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(username, email, password)
+            return HttpResponse("🚀 Database tables built AND Superuser 'admin' created successfully!")
+
+        return HttpResponse("🚀 Database tables built cleanly! Superuser 'admin' already exists.")
     except Exception as e:
-        return HttpResponse(f"❌ Error running migrations: {str(e)}")
+        return HttpResponse(f"❌ Error running infrastructure setup: {str(e)}")
+
 
 urlpatterns = [
     # 0. TEMPORARY DEPLOYMENT TOOLS
