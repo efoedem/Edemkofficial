@@ -227,128 +227,187 @@
     </div>
 
     <script>
-        let isAutoSubmitting = false;
+    let isAutoSubmitting = false;
+    const courseId = "{{ course.id }}";
+    const studentIndex = "{{ index_number }}";
 
-        // === CONFIRMATION SYSTEM HANDLER ===
-        function handleManualSubmit(event) {
-            if (isAutoSubmitting) return true;
-            event.preventDefault();
+    // Create a unique key specific to this student and this exam session
+    const storageKeyPrefix = `exam_${courseId}_${studentIndex}_`;
+    const timerStorageKey = storageKeyPrefix + 'time_left';
+    const answersStorageKey = storageKeyPrefix + 'saved_answers';
 
-            const totalQuestions = document.querySelectorAll('.question-block').length;
-            let answeredCount = 0;
+    // === 1. STATEFUL COUNTDOWN CHRONOMETER ENGINE ===
+    let totalDurationMs = {{ duration_ms }};
+    let timeLeft;
 
-            const radioGroups = new Set();
-            document.querySelectorAll('input[type="radio"]').forEach(r => radioGroups.add(r.name));
-            radioGroups.forEach(name => {
-                if (document.querySelector(`input[name="${name}"]:checked`)) answeredCount++;
+    // Check if there is already an active running clock in storage
+    if (localStorage.getItem(timerStorageKey)) {
+        timeLeft = parseInt(localStorage.getItem(timerStorageKey), 10);
+    } else {
+        timeLeft = totalDurationMs;
+        localStorage.setItem(timerStorageKey, timeLeft);
+    }
+
+    const timerDisplay = document.getElementById('timer');
+    const quizForm = document.getElementById('quizForm');
+
+    const countdown = setInterval(() => {
+        timeLeft -= 1000;
+
+        // Save current remaining time tick to storage
+        localStorage.setItem(timerStorageKey, timeLeft);
+
+        let mins = Math.floor(timeLeft / 60000);
+        let secs = Math.floor((timeLeft % 60000) / 1000);
+        timerDisplay.innerHTML = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            clearExamStorage();
+            isAutoSubmitting = true;
+            alert("TIME EXPIRED. Saving state automatically.");
+            quizForm.submit();
+        }
+    }, 1000);
+
+
+    // === 2. PERSISTENT INPUT SAVING ENGINE ===
+    // Function to load answers if they exist in localStorage
+    function restoreSavedAnswers() {
+        const savedAnswersRaw = localStorage.getItem(answersStorageKey);
+        if (savedAnswersRaw) {
+            const savedAnswers = JSON.parse(savedAnswersRaw);
+
+            Object.keys(savedAnswers).forEach(name => {
+                const value = savedAnswers[name];
+                const inputElement = document.querySelector(`[name="${name}"]`);
+
+                if (inputElement) {
+                    if (inputElement.type === 'radio') {
+                        // Find and check the specific radio choice match
+                        const targetRadio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+                        if (targetRadio) targetRadio.checked = true;
+                    } else {
+                        // Restore Text and Essay inputs
+                        inputElement.value = value;
+                    }
+                }
             });
+        }
+    }
 
-            document.querySelectorAll('input[type="text"], textarea').forEach(el => {
-                if (el.value.trim() !== "") answeredCount++;
-            });
+    // Function to collect and save current state of all form fields
+    function saveCurrentAnswers() {
+        const formData = new FormData(quizForm);
+        const answersObj = {};
 
-            let message = "Are you sure you want to finalize and submit your examination?";
-            if (answeredCount < totalQuestions) {
-                message = `⚠️ Warning: You have only answered ${answeredCount} out of ${totalQuestions} questions.\n\nAre you absolutely sure you want to submit your paper with missing answers?`;
+        for (let [key, value] of formData.entries()) {
+            // Only track input items belonging to question responses
+            if (key.startsWith('q') && value.trim() !== "") {
+                answersObj[key] = value;
             }
+        }
+        localStorage.setItem(answersStorageKey, JSON.stringify(answersObj));
+    }
 
-            if (confirm(message)) {
-                isAutoSubmitting = true;
-                document.getElementById('quizForm').submit();
-            }
-            return false;
+    // Bind real-time change events to form inputs so everything auto-saves instantly
+    quizForm.addEventListener('change', saveCurrentAnswers);
+    quizForm.addEventListener('input', saveCurrentAnswers);
+
+
+    // === 3. CLEAN UP UTILITIES ===
+    function clearExamStorage() {
+        localStorage.removeItem(timerStorageKey);
+        localStorage.removeItem(answersStorageKey);
+    }
+
+    // Clear storage cache only when the user finishes successfully
+    function handleManualSubmit(event) {
+        if (isAutoSubmitting) return true;
+        event.preventDefault();
+
+        const totalQuestions = document.querySelectorAll('.question-block').length;
+        let answeredCount = 0;
+
+        const radioGroups = new Set();
+        document.querySelectorAll('input[type="radio"]').forEach(r => radioGroups.add(r.name));
+        radioGroups.forEach(name => {
+            if (document.querySelector(`input[name="${name}"]:checked`)) answeredCount++;
+        });
+
+        document.querySelectorAll('input[type="text"], textarea').forEach(el => {
+            if (el.value.trim() !== "") answeredCount++;
+        });
+
+        let message = "Are you sure you want to finalize and submit your examination?";
+        if (answeredCount < totalQuestions) {
+            message = `⚠️ Warning: You have only answered ${answeredCount} out of ${totalQuestions} questions.\n\nAre you absolutely sure you want to submit your paper with missing answers?`;
         }
 
-        // === 1. CAMERA PROCTORING LOCKOUT ===
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => { document.getElementById('video').srcObject = stream; })
-            .catch(() => { alert("Proctoring Error: Active camera verification mandatory."); window.location.href="/"; });
+        if (confirm(message)) {
+            clearExamStorage(); // Safe to wipe clear now
+            isAutoSubmitting = true;
+            document.getElementById('quizForm').submit();
+        }
+        return false;
+    }
 
-        // === 2. MASTER COUNTDOWN CHRONOMETER ===
-        let timeLeft = {{ duration_ms }};
-        const timerDisplay = document.getElementById('timer');
-        const quizForm = document.getElementById('quizForm');
 
-        const countdown = setInterval(() => {
-            timeLeft -= 1000;
-            let mins = Math.floor(timeLeft / 60000);
-            let secs = Math.floor((timeLeft % 60000) / 1000);
-            timerDisplay.innerHTML = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    // === 4. INITIALIZATION LAUNCH PROCEDURES ===
+    // Restore any previous work immediately when the page finishes loading
+    restoreSavedAnswers();
 
-            if (timeLeft <= 0) {
-                clearInterval(countdown);
+
+    // === 5. EXISTING SECURITY POLICIES (CAM, KEYBOARD & GEOLOCATION LOCATED BELOW) ===
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => { document.getElementById('video').srcObject = stream; })
+        .catch(() => { alert("Proctoring Error: Active camera verification mandatory."); window.location.href="/"; });
+
+    let focusViolations = 0;
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            focusViolations++;
+            if (focusViolations === 1) {
+                alert("🚨 CRITICAL SECURITY WARNING!\nYou have navigated away from the exam screen. Switching tabs or closing this window again will cause your examination to AUTO-SUBMIT immediately.");
+            } else if (focusViolations >= 2) {
+                document.getElementById('security_breach_flag').value = "true";
+                clearExamStorage(); // Clear before forced push
                 isAutoSubmitting = true;
-                alert("TIME EXPIRED. Saving state automatically.");
+                alert("🚫 EXAM TERMINATED!\nMultiple navigation breaches logged. Submitting paper now.");
                 quizForm.submit();
             }
-        }, 1000);
-
-        // === 3. STATEFUL TAB-SWITCH DETECTOR ===
-        let focusViolations = 0;
-        document.addEventListener("visibilitychange", () => {
-            if (document.hidden) {
-                focusViolations++;
-                if (focusViolations === 1) {
-                    alert("🚨 CRITICAL SECURITY WARNING!\nYou have navigated away from the exam screen. Switching tabs or closing this window again will cause your examination to AUTO-SUBMIT immediately.");
-                } else if (focusViolations >= 2) {
-                    document.getElementById('security_breach_flag').value = "true";
-                    isAutoSubmitting = true;
-                    alert("🚫 EXAM TERMINATED!\nMultiple navigation breaches logged. Submitting paper now.");
-                    quizForm.submit();
-                }
-            }
-        });
-
-        // === 4. KEYSTROKE BLOCKING LAYER ===
-        document.addEventListener('keydown', function(e) {
-            if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C"))) {
-                e.preventDefault();
-                return false;
-            }
-            if (e.ctrlKey && e.key === 'p') {
-                e.preventDefault();
-                alert("Printing is restricted during examinations.");
-                return false;
-            }
-            if (e.ctrlKey && e.key === 's') {
-                e.preventDefault();
-                return false;
-            }
-        });
-
-        window.addEventListener('keyup', function(e) {
-            if (e.key === 'PrintScreen') {
-                navigator.clipboard.writeText('');
-                alert("Screenshot capture disabled.");
-            }
-        });
-
-        // === 5. HAVERSINE GEOLOCATION PERIMETER CHECK ===
-        function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const phi1 = lat1 * Math.PI/180;
-            const phi2 = lat2 * Math.PI/180;
-            const deltaPhi = (lat2-lat1) * Math.PI/180;
-            const deltaLambda = (lon2-lon1) * Math.PI/180;
-
-            const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
-                      Math.cos(phi1) * Math.cos(phi2) *
-                      Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
-            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
         }
+    });
 
-        // 🚀 Triangulate fast indoor cellular coordinates securely
-        navigator.geolocation.getCurrentPosition((pos) => {
-            const distance = calculateHaversineDistance(pos.coords.latitude, pos.coords.longitude, {{ course.latitude }}, {{ course.longitude }});
-            if (distance > {{ course.radius_meters }}) {
-                document.body.innerHTML = `
-                    <div class="error-overlay">
-                        <h1 style="color:#ef4444;">ACCESS DENIED</h1>
-                        <p style="margin-top:10px; color:#64748b;">You are located ${Math.round(distance)}m outside authorized perimeter barriers.</p>
-                        <button onclick="window.location.href='/'" style="margin-top:20px; background:#2563eb; color:white; padding:10px 20px; border:none; border-radius:6px; cursor:pointer;">Return</button>
-                    </div>`;
-            }
-        }, (err) => { alert("Active geolocation metrics mandatory."); window.location.href = "/"; }, { enableHighAccuracy: false });
-    </script>
+    document.addEventListener('keydown', function(e) {
+        if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C"))) { e.preventDefault(); return false; }
+        if (e.ctrlKey && e.key === 'p') { e.preventDefault(); alert("Printing is restricted during examinations."); return false; }
+        if (e.ctrlKey && e.key === 's') { e.preventDefault(); return false; }
+    });
+
+    window.addEventListener('keyup', function(e) {
+        if (e.key === 'PrintScreen') { navigator.clipboard.writeText(''); alert("Screenshot capture disabled."); }
+    });
+
+    function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3;
+        const phi1 = lat1 * Math.PI/180; const phi2 = lat2 * Math.PI/180;
+        const deltaPhi = (lat2-lat1) * Math.PI/180; const deltaLambda = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    }
+
+    navigator.geolocation.getCurrentPosition((pos) => {
+        const distance = calculateHaversineDistance(pos.coords.latitude, pos.coords.longitude, {{ course.latitude }}, {{ course.longitude }});
+        if (distance > {{ course.radius_meters }}) {
+            document.body.innerHTML = `
+                <div class="error-overlay">
+                    <h1 style="color:#ef4444;">ACCESS DENIED</h1>
+                    <p style="margin-top:10px; color:#64748b;">You are located ${Math.round(distance)}m outside authorized perimeter barriers.</p>
+                    <button onclick="window.location.href='/'" style="margin-top:20px; background:#2563eb; color:white; padding:10px 20px; border:none; border-radius:6px; cursor:pointer;">Return</button>
+                </div>`;
+        }
+    }, (err) => { alert("Active geolocation metrics mandatory."); window.location.href = "/"; }, { enableHighAccuracy: false });
+</script>
 </body>
 </html>
