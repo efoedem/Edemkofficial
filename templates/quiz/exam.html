@@ -38,14 +38,17 @@
             overflow: hidden;
         }
 
+        /* 📱 RESPONSIVE CONTENT HOUSING GRID */
         .scrollable-content {
             flex: 1;
             height: 100%;
             overflow-y: auto;
             padding: 30px;
-            padding-right: 220px;
+            padding-right: 220px; /* Leave space clear for the desktop camera box */
+            transition: padding-right 0.2s ease;
         }
 
+        /* 📸 RESPONSIVE VIDEO VIEWPORT ARCHITECTURE */
         #video {
             width: 180px;
             position: fixed;
@@ -55,6 +58,9 @@
             border-radius: 10px;
             z-index: 1000;
             background: #000;
+            aspect-ratio: 3 / 4;
+            object-fit: cover;
+            transition: all 0.2s ease;
         }
 
         .timer-box {
@@ -64,6 +70,7 @@
             border-radius: 6px;
             font-weight: bold;
             font-size: 1.1rem;
+            white-space: nowrap;
         }
 
         .container {
@@ -86,8 +93,8 @@
         .options-list { list-style: none; padding: 0; }
         .options-list li { margin: 12px 0; }
 
-        label { cursor: pointer; display: inline-flex; align-items: center; gap: 10px; width: 100%; }
-        input[type="radio"] { width: 18px; height: 18px; cursor: pointer; }
+        label { cursor: pointer; display: inline-flex; align-items: center; gap: 10px; width: 100%; word-break: break-word; }
+        input[type="radio"] { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
 
         button.submit-btn {
             background: #2563eb;
@@ -99,6 +106,7 @@
             font-size: 1rem;
             font-weight: bold;
             transition: background 0.2s;
+            width: auto;
         }
         button.submit-btn:hover { background: #1d4ed8; }
 
@@ -114,6 +122,46 @@
             justify-content: center;
             z-index: 9999;
             flex-direction: column;
+            padding: 20px;
+            text-align: center;
+        }
+
+        /* 🚀 MASTER MEDIA QUERY RE-ALIGNMENT FOR TARGET MOBILE PANELS */
+        @media (max-width: 768px) {
+            .exam-header {
+                padding: 10px 15px;
+            }
+            .exam-header h2 {
+                font-size: 1.05rem !important;
+            }
+
+            .scrollable-content {
+                padding: 15px;
+                padding-right: 15px; /* Clear out desktop layout side space */
+            }
+
+            .container {
+                padding: 20px;
+                border-radius: 8px;
+            }
+
+            .question-block {
+                padding: 15px;
+            }
+
+            button.submit-btn {
+                width: 100%; /* Stretch button block for easy touch targeting */
+            }
+
+            /* 📌 Anchor proctor feed safely to bottom right corner */
+            #video {
+                width: 115px;
+                top: auto;
+                bottom: 20px;
+                right: 15px;
+                border-width: 2px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
         }
 
         @media print {
@@ -133,7 +181,7 @@
     </div>
 
     <div class="workspace-wrapper">
-        <video id="video" autoplay muted></video>
+        <video id="video" autoplay muted playsinline></video>
 
         <div class="scrollable-content">
             <div class="container">
@@ -157,10 +205,10 @@
 
                             {% if q.q_type == 'MCQ' or q.q_type == 'Multiple Choice' %}
                                 <ul class="options-list">
-                                    <li><label><input type="radio" name="q{{q.id}}" value="A"> <strong>A.</strong> {{ q.option_a }}</label></li>
-                                    <li><label><input type="radio" name="q{{q.id}}" value="B"> <strong>B.</strong> {{ q.option_b }}</label></li>
-                                    <li><label><input type="radio" name="q{{q.id}}" value="C"> <strong>C.</strong> {{ q.option_c }}</label></li>
-                                    <li><label><input type="radio" name="q{{q.id}}" value="D"> <strong>D.</strong> {{ q.option_d }}</label></li>
+                                    <li><label><input type="radio" name="q{{q.id}}" value="A"> <span><strong>A.</strong> {{ q.option_a }}</span></label></li>
+                                    <li><label><input type="radio" name="q{{q.id}}" value="B"> <span><strong>B.</strong> {{ q.option_b }}</span></label></li>
+                                    <li><label><input type="radio" name="q{{q.id}}" value="C"> <span><strong>C.</strong> {{ q.option_c }}</span></label></li>
+                                    <li><label><input type="radio" name="q{{q.id}}" value="D"> <span><strong>D.</strong> {{ q.option_d }}</span></label></li>
                                 </ul>
                             {% elif q.q_type == 'FITB' or q.q_type == 'Fill in the Blank' %}
                                 <input type="text" name="q{{q.id}}" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px;" placeholder="Type answer here (optional)...">
@@ -179,28 +227,22 @@
     </div>
 
     <script>
-        // Global switch variable to bypass confirm prompt during auto-submissions (Timer expire, Cheating)
         let isAutoSubmitting = false;
 
-        // === NEW CONFIRMATION SYSTEM HANDLER ===
+        // === CONFIRMATION SYSTEM HANDLER ===
         function handleManualSubmit(event) {
-            if (isAutoSubmitting) return true; // Let auto-submissions go through unhindered
-
-            // Prevent immediate submission to await confirmation window choice
+            if (isAutoSubmitting) return true;
             event.preventDefault();
 
-            // Check how many questions were answered out of curiosity/safety
             const totalQuestions = document.querySelectorAll('.question-block').length;
             let answeredCount = 0;
 
-            // Count checked radio sets
             const radioGroups = new Set();
             document.querySelectorAll('input[type="radio"]').forEach(r => radioGroups.add(r.name));
             radioGroups.forEach(name => {
                 if (document.querySelector(`input[name="${name}"]:checked`)) answeredCount++;
             });
 
-            // Count completed textboxes/textareas
             document.querySelectorAll('input[type="text"], textarea').forEach(el => {
                 if (el.value.trim() !== "") answeredCount++;
             });
@@ -211,7 +253,7 @@
             }
 
             if (confirm(message)) {
-                isAutoSubmitting = true; // Set flag to true to satisfy conditional bypass
+                isAutoSubmitting = true;
                 document.getElementById('quizForm').submit();
             }
             return false;
@@ -235,7 +277,7 @@
 
             if (timeLeft <= 0) {
                 clearInterval(countdown);
-                isAutoSubmitting = true; // Bypass confirmation dialog
+                isAutoSubmitting = true;
                 alert("TIME EXPIRED. Saving state automatically.");
                 quizForm.submit();
             }
@@ -250,7 +292,7 @@
                     alert("🚨 CRITICAL SECURITY WARNING!\nYou have navigated away from the exam screen. Switching tabs or closing this window again will cause your examination to AUTO-SUBMIT immediately.");
                 } else if (focusViolations >= 2) {
                     document.getElementById('security_breach_flag').value = "true";
-                    isAutoSubmitting = true; // Bypass confirmation dialog
+                    isAutoSubmitting = true;
                     alert("🚫 EXAM TERMINATED!\nMultiple navigation breaches logged. Submitting paper now.");
                     quizForm.submit();
                 }
@@ -295,6 +337,7 @@
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
         }
 
+        // 🚀 Triangulate fast indoor cellular coordinates securely
         navigator.geolocation.getCurrentPosition((pos) => {
             const distance = calculateHaversineDistance(pos.coords.latitude, pos.coords.longitude, {{ course.latitude }}, {{ course.longitude }});
             if (distance > {{ course.radius_meters }}) {
@@ -305,7 +348,7 @@
                         <button onclick="window.location.href='/'" style="margin-top:20px; background:#2563eb; color:white; padding:10px 20px; border:none; border-radius:6px; cursor:pointer;">Return</button>
                     </div>`;
             }
-        }, (err) => { alert("Active geolocation metrics mandatory."); window.location.href = "/"; }, { enableHighAccuracy: true });
+        }, (err) => { alert("Active geolocation metrics mandatory."); window.location.href = "/"; }, { enableHighAccuracy: false });
     </script>
 </body>
 </html>
