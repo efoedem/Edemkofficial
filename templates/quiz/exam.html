@@ -240,7 +240,6 @@
     let totalDurationMs = {{ duration_ms }};
     let timeLeft;
 
-    // Check if there is already an active running clock in storage
     if (localStorage.getItem(timerStorageKey)) {
         timeLeft = parseInt(localStorage.getItem(timerStorageKey), 10);
     } else {
@@ -253,8 +252,6 @@
 
     const countdown = setInterval(() => {
         timeLeft -= 1000;
-
-        // Save current remaining time tick to storage
         localStorage.setItem(timerStorageKey, timeLeft);
 
         let mins = Math.floor(timeLeft / 60000);
@@ -272,7 +269,6 @@
 
 
     // === 2. PERSISTENT INPUT SAVING ENGINE ===
-    // Function to load answers if they exist in localStorage
     function restoreSavedAnswers() {
         const savedAnswersRaw = localStorage.getItem(answersStorageKey);
         if (savedAnswersRaw) {
@@ -284,11 +280,9 @@
 
                 if (inputElement) {
                     if (inputElement.type === 'radio') {
-                        // Find and check the specific radio choice match
                         const targetRadio = document.querySelector(`input[name="${name}"][value="${value}"]`);
                         if (targetRadio) targetRadio.checked = true;
                     } else {
-                        // Restore Text and Essay inputs
                         inputElement.value = value;
                     }
                 }
@@ -296,13 +290,11 @@
         }
     }
 
-    // Function to collect and save current state of all form fields
     function saveCurrentAnswers() {
         const formData = new FormData(quizForm);
         const answersObj = {};
 
         for (let [key, value] of formData.entries()) {
-            // Only track input items belonging to question responses
             if (key.startsWith('q') && value.trim() !== "") {
                 answersObj[key] = value;
             }
@@ -310,7 +302,6 @@
         localStorage.setItem(answersStorageKey, JSON.stringify(answersObj));
     }
 
-    // Bind real-time change events to form inputs so everything auto-saves instantly
     quizForm.addEventListener('change', saveCurrentAnswers);
     quizForm.addEventListener('input', saveCurrentAnswers);
 
@@ -321,7 +312,6 @@
         localStorage.removeItem(answersStorageKey);
     }
 
-    // Clear storage cache only when the user finishes successfully
     function handleManualSubmit(event) {
         if (isAutoSubmitting) return true;
         event.preventDefault();
@@ -345,7 +335,7 @@
         }
 
         if (confirm(message)) {
-            clearExamStorage(); // Safe to wipe clear now
+            clearExamStorage();
             isAutoSubmitting = true;
             document.getElementById('quizForm').submit();
         }
@@ -354,11 +344,10 @@
 
 
     // === 4. INITIALIZATION LAUNCH PROCEDURES ===
-    // Restore any previous work immediately when the page finishes loading
     restoreSavedAnswers();
 
 
-    // === 5. EXISTING SECURITY POLICIES (CAM, KEYBOARD & GEOLOCATION LOCATED BELOW) ===
+    // === 5. EXISTING SECURITY POLICIES (CAM, KEYBOARD & GEOLOCATION) ===
     navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => { document.getElementById('video').srcObject = stream; })
         .catch(() => { alert("Proctoring Error: Active camera verification mandatory."); window.location.href="/"; });
@@ -371,7 +360,7 @@
                 alert("🚨 CRITICAL SECURITY WARNING!\nYou have navigated away from the exam screen. Switching tabs or closing this window again will cause your examination to AUTO-SUBMIT immediately.");
             } else if (focusViolations >= 2) {
                 document.getElementById('security_breach_flag').value = "true";
-                clearExamStorage(); // Clear before forced push
+                clearExamStorage();
                 isAutoSubmitting = true;
                 alert("🚫 EXAM TERMINATED!\nMultiple navigation breaches logged. Submitting paper now.");
                 quizForm.submit();
@@ -408,6 +397,34 @@
                 </div>`;
         }
     }, (err) => { alert("Active geolocation metrics mandatory."); window.location.href = "/"; }, { enableHighAccuracy: false });
+
+
+    // === 6. 🛡️ BROWSER ARROW NAVIGATION BREACH LOCKOUT ENGINE ===
+    history.pushState(null, null, window.location.href);
+
+    window.addEventListener('popstate', function (event) {
+        history.pushState(null, null, window.location.href);
+        document.getElementById('security_breach_flag').value = "true";
+
+        if (typeof clearExamStorage === 'function') {
+            clearExamStorage();
+        }
+
+        isAutoSubmitting = true;
+        alert("🚫 EXAM TERMINATED!\nUsing the browser Back/Forward navigation arrows is strictly forbidden. Submitting paper immediately.");
+        document.getElementById('quizForm').submit();
+    });
+
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            document.getElementById('security_breach_flag').value = "true";
+            if (typeof clearExamStorage === 'function') {
+                clearExamStorage();
+            }
+            isAutoSubmitting = true;
+            document.getElementById('quizForm').submit();
+        }
+    });
 </script>
 </body>
 </html>
