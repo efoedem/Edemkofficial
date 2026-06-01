@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Student Portal | Login</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -34,17 +34,31 @@
             max-width: 400px;
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.3);
+            margin: 15px;
         }
 
-        h2 { font-weight: 600; margin-bottom: 0.5rem; color: #0f172a; }
+        h2 { font-weight: 600; margin-bottom: 0.5rem; color: #0f172a; font-size: 1.75rem; }
         p.subtitle { font-size: 0.875rem; color: #64748b; margin-bottom: 2rem; }
         .input-group { text-align: left; margin-bottom: 1.25rem; }
-        label { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; color: #475569; }
-        input, select { width: 100%; padding: 0.75rem 1rem; border-radius: 0.75rem; border: 1px solid #cbd5e1; background: white; font-size: 1rem; box-sizing: border-box; }
-        button { width: 100%; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 0.75rem; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+        label { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; color: #475569; letter-spacing: 0.05em; }
+        input, select { width: 100%; padding: 0.75rem 1rem; border-radius: 0.75rem; border: 1px solid #cbd5e1; background: white; font-size: 1rem; box-sizing: border-box; font-family: inherit; color: #0f172a; }
+
+        button { width: 100%; padding: 0.85rem; background: var(--primary); color: white; border: none; border-radius: 0.75rem; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: background 0.2s ease; }
         button:disabled { background: #94a3b8; cursor: not-allowed; }
-        .error-msg { color: #dc2626; font-size: 0.875rem; margin-bottom: 1rem; font-weight: 600; }
-        .gps-status { font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 0.5rem; text-align: left; }
+
+        .error-msg {
+            color: #b91c1c;
+            background-color: #fef2f2;
+            border-left: 4px solid #dc2626;
+            padding: 12px;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            border-radius: 4px;
+            text-align: left;
+            line-height: 1.4;
+        }
+        .gps-status { font-size: 0.8rem; color: #d97706; font-weight: 600; margin-top: 0.75rem; text-align: left; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -65,12 +79,12 @@
 
             <div class="input-group">
                 <label>Full Name</label>
-                <input type="text" name="full_name" placeholder="e.g. Prince Edem" required>
+                <input type="text" name="full_name" placeholder="e.g. Prince Edem" required autocomplete="off">
             </div>
 
             <div class="input-group">
                 <label>Index Number</label>
-                <input type="text" name="index_number" placeholder="Enter ID" required>
+                <input type="text" name="index_number" placeholder="Enter ID" required autocomplete="off">
             </div>
 
             <div class="input-group">
@@ -88,7 +102,7 @@
                 <select id="course_select" name="course_id" required></select>
             </div>
 
-            <div id="gps_feedback" class="gps-status" style="color: #d97706;">Acquiring satellite location fix...</div>
+            <div id="gps_feedback" class="gps-status">Acquiring satellite location fix...</div>
 
             <button type="submit" id="start_btn" disabled>Waiting for GPS Fix...</button>
         </form>
@@ -99,10 +113,17 @@
 
     // Helper function to safely unlock the start button only if form rules and location are valid
     function checkAndUnlockButton() {
-        if (gpsAcquired && ($('#course_select').val() || $('#lecturer_select').val())) {
+        const hasCourseSelected = $('#course_select').val() !== null && $('#course_select').val() !== "";
+
+        if (gpsAcquired && hasCourseSelected) {
             $('#start_btn').prop('disabled', false).text('Start Quiz Session');
-        } else if (!gpsAcquired) {
-            $('#start_btn').prop('disabled', true).text('Waiting for Verified Location...');
+        } else {
+            $('#start_btn').prop('disabled', true);
+            if (!gpsAcquired) {
+                $('#start_btn').text('Waiting for Verified Location...');
+            } else {
+                $('#start_btn').text('Select Course Code...');
+            }
         }
     }
 
@@ -156,13 +177,14 @@
                     checkAndUnlockButton();
                 },
                 {
-                    enableHighAccuracy: false, // 🚀 FORCES cellular & Wi-Fi triangulation for instant indoor verification
+                    enableHighAccuracy: false, // FORCES cellular & Wi-Fi triangulation for instant indoor verification
                     timeout: 12000,            // Allows 12 seconds to compile accurate network triangulation
                     maximumAge: 60000          // Re-verify coordinates if cache data is older than 60 seconds
                 }
             );
         } else {
             $('#gps_feedback').text('✕ Browser security rules unsupported. Use Chrome or Safari.').css('color', '#dc2626');
+            checkAndUnlockButton();
         }
     }
 
@@ -176,7 +198,7 @@
         });
     });
 
-    // Re-verify anytime they try to alter selections to block perimeter spoofing
+    // Re-verify anytime they alter selections to block perimeter spoofing
     $('#course_select').change(checkAndUnlockButton);
 </script>
 </body>
