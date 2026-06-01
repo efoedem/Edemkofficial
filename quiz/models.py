@@ -22,7 +22,7 @@ class Lecturer(models.Model):
 class Course(models.Model):
     lecturer = models.ForeignKey(Lecturer, on_delete=models.CASCADE)
     title = models.CharField(max_length=200)  # Standardized max_length
-    code = models.CharField(max_length=50)    # Standardized max_length
+    code = models.CharField(max_length=200)    # Standardized max_length
     exam_name = models.CharField(max_length=200) # Standardized max_length
     duration_minutes = models.IntegerField(default=30)
 
