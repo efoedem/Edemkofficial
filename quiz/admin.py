@@ -83,5 +83,13 @@ class LecturerAdmin(admin.ModelAdmin):
         list_filter = ('course', 'has_taken_exam')
         search_fields = ('index_number', 'full_name')
 
-        # Links dashboard template file to inject our custom drag-and-drop form
+        # Points Django to read our custom dropdown upload form template
         change_list_template = "admin/quiz/allowedstudent/change_list.html"
+
+        def changelist_view(self, request, extra_context=None):
+            # 🎯 FORCE-INJECT: Grab all courses directly from the database
+            extra_context = extra_context or {}
+            extra_context['all_system_courses'] = Course.objects.all().order_by('code')
+
+            # Pass control back to standard Django Admin engine with our custom variables attached
+            return super().changelist_view(request, extra_context=extra_context)
