@@ -93,6 +93,17 @@ def login_portal(request):
     lecturers = Lecturer.objects.all()
     return render(request, 'quiz/login.html', {'lecturers': lecturers})
 
+def get_courses(request):
+    """
+    Dynamically returns JSON data filtered by lecturer selection
+    to populate the frontend course selection field.
+    """
+    lecturer_id = request.GET.get('lecturer_id')
+    if lecturer_id:
+        courses = Course.objects.filter(lecturer_id=lecturer_id).values('id', 'code', 'title')
+        return JsonResponse(list(courses), safe=False)
+    return JsonResponse([], safe=False)
+
 
 def start_quiz(request):
     """
