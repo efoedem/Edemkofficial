@@ -30,6 +30,20 @@ def login_portal(request):
     Renders the unified login gatekeeper portal and verifies student authorization
     against the database records before establishing a user context.
     """
+    # 🎯 CHECK: If the student just completed a successful validation step,
+    # show them the "Ready to Start" layout cleanly.
+    if request.method == "GET" and request.session.get('is_authenticated_student'):
+        course_id = request.session.get('authorized_course_id')
+        course = get_object_or_404(Course, id=course_id)
+
+        return render(request, 'quiz/login.html', {
+            'course': course,
+            'student_name': request.session.get('student_name'),
+            'index_number': request.session.get('index_number'),
+            'is_authenticated': True,
+            'lecturers': Lecturer.objects.all()
+        })
+
     if request.method == "POST":
         input_index = request.POST.get('index_number', '').strip().upper()
         course_id = request.POST.get('course_id')
@@ -50,24 +64,18 @@ def login_portal(request):
             messages.error(request, "🚫 Security Alert: You have already submitted this examination.")
             return redirect('login_portal')
 
-        # 4. Success: Secure identity metrics inside session context and push to landing validation step
+        # 4. Success: Secure identity metrics inside session context
         request.session['student_name'] = student_check.full_name
         request.session['index_number'] = student_check.index_number
         request.session['authorized_course_id'] = course_id
+        request.session['is_authenticated_student'] = True  # Custom authorization flag
 
-        # Render using your existing login.html instead of a missing file, passing lecturers along just in case
-        return render(request, 'quiz/login.html', {
-            'course': student_check.course,
-            'student_name': student_check.full_name,
-            'index_number': student_check.index_number,
-            'is_authenticated': True,
-            'lecturers': Lecturer.objects.all() # Keeps lecturer context alive if they need to reset
-        })
+        # 🚀 REDIRECT: Redirecting clears the POST context and prevents CSRF mismatches entirely!
+        return redirect('login_portal')
 
-    # 🎯 FIX HERE: Fetch every active lecturer profile from the database and pass it to the GET view
+    # Standard GET request: Render the streamlined portal selection template normally
     lecturers = Lecturer.objects.all()
     return render(request, 'quiz/login.html', {'lecturers': lecturers})
-
 
 def get_courses(request):
     lecturer_id = request.GET.get('lecturer_id')
