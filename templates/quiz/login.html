@@ -67,25 +67,21 @@
         <h2>Student Login</h2>
         <p class="subtitle">Enter your details to begin the examination</p>
 
+        {% if messages %}
+            {% for message in messages %}
+                <div class="error-msg">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
         {% if error %}
             <div class="error-msg">{{ error }}</div>
         {% endif %}
 
-        <form action="{% url 'start_quiz' %}" method="POST" id="main_form">
+        <form action="{% url 'login_portal' %}" method="POST" id="main_form">
             {% csrf_token %}
 
             <input type="hidden" name="lat" id="lat_input">
             <input type="hidden" name="lng" id="lng_input">
-
-            <div class="input-group">
-                <label>Full Name</label>
-                <input type="text" id="full_name_input" name="full_name" placeholder="e.g. Prince Edem" required autocomplete="off">
-            </div>
-
-            <div class="input-group">
-                <label>Index Number</label>
-                <input type="text" id="index_number_input" name="index_number" placeholder="Enter ID" required autocomplete="off">
-            </div>
 
             <div class="input-group">
                 <label>Select Lecturer</label>
@@ -102,6 +98,11 @@
                 <select id="course_select" name="course_id" required></select>
             </div>
 
+            <div class="input-group">
+                <label>Index Number</label>
+                <input type="text" id="index_number_input" name="index_number" placeholder="Enter ID" required autocomplete="off">
+            </div>
+
             <div id="gps_feedback" class="gps-status">Acquiring satellite location fix...</div>
 
             <button type="submit" id="start_btn" disabled>Waiting for GPS Fix...</button>
@@ -111,12 +112,11 @@
     <script>
     let gpsAcquired = false;
 
-    // Helper function to safely unlock the start button only if form rules and location are valid
     function checkAndUnlockButton() {
         const hasCourseSelected = $('#course_select').val() !== null && $('#course_select').val() !== "";
 
         if (gpsAcquired && hasCourseSelected) {
-            $('#start_btn').prop('disabled', false).text('Start Quiz Session');
+            $('#start_btn').prop('disabled', false).text('Verify & Enter Examination');
         } else {
             $('#start_btn').prop('disabled', true);
             if (!gpsAcquired) {
@@ -147,7 +147,7 @@
         }
     });
 
-    // 2. Strict Geolocation Core Engine
+    // 2. Geolocation Core Engine
     function acquireStrictLocation() {
         gpsAcquired = false;
         $('#gps_feedback').text('Acquiring secure exam hall coordinates...').css('color', '#d97706');
@@ -175,9 +175,9 @@
                     checkAndUnlockButton();
                 },
                 {
-                    enableHighAccuracy: false,
+                    enableHighAccuracy: true,
                     timeout: 12000,
-                    maximumAge: 60000
+                    maximumAge: 0
                 }
             );
         } else {
@@ -192,21 +192,18 @@
         const upperIndex = rawIndex.toUpperCase();
         const courseText = $("#course_select option:selected").text();
 
-        // Display a clean confirmation dialog to ensure no typo locks them out
         const userConfirmed = confirm(
             `Please verify your identity before entering the exam room:\n\n` +
             `• Index Number: ${upperIndex}\n` +
             `• Examination: ${courseText}\n\n` +
-            `Is your Index Number 100% correct? If it is wrong, you will not be allowed to change it once the session starts.`
+            `Is your Index Number 100% correct? If it does not match our records, access will be blocked.`
         );
 
         if (!userConfirmed) {
-            // Cancel form submission if they click "Cancel"
             event.preventDefault();
         }
     });
 
-    // Initialize tracking routine on page launch
     $(document).ready(function() {
         acquireStrictLocation();
 
