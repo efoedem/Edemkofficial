@@ -11,7 +11,6 @@ from django.utils import timezone
 
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 
-# Binary document file parsers
 try:
     import openpyxl
 except ImportError:
@@ -30,8 +29,6 @@ def login_portal(request):
     Renders the unified login gatekeeper portal and verifies student authorization
     against the database records before establishing a user context.
     """
-    # 🎯 CHECK: If the student just completed a successful validation step,
-    # show them the "Ready to Start" layout cleanly.
     if request.method == "GET" and request.session.get('is_authenticated_student'):
         course_id = request.session.get('authorized_course_id')
         course = get_object_or_404(Course, id=course_id)
@@ -68,14 +65,13 @@ def login_portal(request):
         request.session['student_name'] = student_check.full_name
         request.session['index_number'] = student_check.index_number
         request.session['authorized_course_id'] = course_id
-        request.session['is_authenticated_student'] = True  # Custom authorization flag
+        request.session['is_authenticated_student'] = True
 
-        # 🚀 REDIRECT: Redirecting clears the POST context and prevents CSRF mismatches entirely!
         return redirect('login_portal')
 
-    # Standard GET request: Render the streamlined portal selection template normally
     lecturers = Lecturer.objects.all()
     return render(request, 'quiz/login.html', {'lecturers': lecturers})
+
 
 def get_courses(request):
     lecturer_id = request.GET.get('lecturer_id')
@@ -87,7 +83,6 @@ def start_quiz(request):
     """
     Validates physical perimeter parameters and active time brackets before generating the exam sheet.
     """
-    # Safeguard route against raw URL tracking hits if session context is missing
     student_name = request.session.get('student_name')
     index_number = request.session.get('index_number')
     course_id = request.session.get('authorized_course_id')
@@ -95,6 +90,113 @@ def start_quiz(request):
     if not student_name or not index_number or not course_id:
         messages.error(request, "Authentication expired or missing context. Please log in again.")
         return redirect('login_portal')
+
+    if request.method == "POST":
+        user_lat = request.POST.get('lat')
+        user_lng = request.POST.get('lng')
+
+        course = get_object_or_404(Course, id=course_id)
+
+        # 1. Duplicate Entrance Permission Controller
+        already_submitted = StudentSubmission.objects.filter(
+            index_number=index_number,
+            course=course
+        ).exists()
+
+        if already_submitted:
+            messages.error(request, f"SECURITY LOCKOUT: Index Number {index_number} has an existing paper log.")
+            return redirect('login_portal')
+
+        # 2. Secure Datetime Gatekeeper
+        current_time = timezone.now()
+
+        if current_time < course.start_time:
+            expected_start = course.start_time.strftime("%I:%M %p (%d %b)")
+            messages.error(request, f"EXAMINATION NOT YET ACTIVE: Scheduled to begin at {expected_start}.")
+            return redirect('login_portal')
+
+        if current_time > course.end_time:
+            messages.error(request, "ACCESS DENIED: The examination entry window has closed.")
+            return redirect('login_portal')
+
+        # 3. Geolocation Perimeter Verification
+        if user_lat and user_lng:
+            try:
+                student_coords = (float(user_lat), float(user_lng))
+                hall_coords = (course.latitude, course.longitude)
+
+                # Geodesic calculation mapping matching your original high-precision framework
+                distance = geodesic(student_coords, hall_coords).meters
+
+                if distance > course.radius_meters:
+                    messages.error(request,
+                                   f"ACCESS DENIED: Physical perimeter verification failed. You are {round(distance)}m away from the authorized zone.")
+                    return redirect('login_portal')
+            except ValueError:
+                messages.error(request, "Invalid hardware location coordinate stream parsing exception.")
+                return redirect('login_portal')
+        else:
+            messages.error(request, "Location tracking verification mandatory. Please enable GPS hardware access.")
+            return redirect('login_portal')
+
+        context = {
+            'course': course,
+            'questions': Question.objects.filter(course=course),
+            'student_name': student_name,
+            'index_number': index_number,
+            'duration_ms': course.duration_minutes * 60 * 1000
+        }
+        return render(request, 'quiz/exam.html', context)
+
+    return redirect('login_portal')
+
+
+def submit_quiz(request):
+    if request.method == "POST":
+        full_name = request.POST.get('full_name', 'Unknown Student').strip()
+        index_number = request.POST.get('index_number', '000000').strip().upper()
+        course_id = request.POST.get('course_id')
+        security_breach = request.POST.get('security_breach', 'false')
+
+        course_obj = get_object_or_404(Course, id=course_id)
+
+        if StudentSubmission.objects.filter(index_number=index_number, course=course_obj).exists():
+            return HttpResponse("Form processing rejected: Duplicate paper submission detected for this index profile.",
+                                status=403)
+
+        answers = {key: value for key, value in request.POST.items() if key.startswith('q')}
+        all_questions = Question.objects.filter(course=course_obj)
+
+        correct_count = 0
+        for q in all_questions:
+            submitted_val = answers.get(f'q{q.id}')
+            if submitted_val:
+                if str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
+                    correct_count += 1
+
+        display_name = full_name
+        if security_breach == "true":
+            display_name += " [⚠️ TERMINATED FOR TAB SWITCHING]"
+
+        StudentSubmission.objects.create(
+            student_name=display_name,
+            index_number=index_number,
+            course=course_obj,
+            submitted_answers=json.dumps(answers),
+            score=float(correct_count)
+        )
+
+        AllowedStudent.objects.filter(index_number=index_number, course=course_obj).update(has_taken_exam=True)
+        request.session.flush()
+
+        return render(request, 'quiz/submitted.html', {
+            'student_name': full_name,
+            'score': int(correct_count),
+            'show_score': False if security_breach == "true" else course_obj.show_scores
+        })
+    return redirect('login_portal')
+
+    # (Rest of bulk import methods remain unmodified...)
 
     if request.method == "POST":
         user_lat = request.POST.get('lat')

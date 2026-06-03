@@ -98,7 +98,7 @@
         {% if is_authenticated %}
             <span class="verification-success-badge">✓ Authorization Verified</span>
             <h2>Ready to Begin?</h2>
-            <p class="subtitle" style="margin-bottom: 1rem;">Confirm your details to initialize the workspace lock interface</p>
+            <p class="subtitle" style="margin-bottom: 1rem;">Confirm details to process spatial coordinate alignment</p>
 
             <div class="details-box">
                 <div class="details-row">
@@ -130,37 +130,25 @@
 
             <script>
                 function executeFinalLaunch() {
+                    if (!document.getElementById('launch_lat').value) {
+                        alert("Cannot initialize sheet: Waiting for verified satellite telemetry.");
+                        return;
+                    }
                     $('#launch_gps_feedback').text('Pinpointing exam hall coordinates...').css('color', '#d97706');
                     $('#launch_btn').prop('disabled', true).text('Launching sheet...');
-
-                    if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                            function(position) {
-                                document.getElementById('launch_lat').value = position.coords.latitude;
-                                document.getElementById('launch_lng').value = position.coords.longitude;
-                                document.getElementById('launch-exam-form').submit();
-                            },
-                            function(error) {
-                                alert("GPS Pipeline Error: Re-verify that your device location is active and permitted.");
-                                $('#launch_gps_feedback').text('✕ Core Telemetry Stream Failed').css('color', '#dc2626');
-                                $('#launch_btn').prop('disabled', false).text('Retry Launch Sequence');
-                            },
-                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                        );
-                    }
+                    document.getElementById('launch-exam-form').submit();
                 }
 
                 $(document).ready(function() {
                     if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(function(position) {
+                        navigator.geolocation.watchPosition(function(position) {
                             document.getElementById('launch_lat').value = position.coords.latitude;
                             document.getElementById('launch_lng').value = position.coords.longitude;
                             $('#launch_gps_feedback').text('✓ Location Synchronized Natively').css('color', '#059669');
                             $('#launch_btn').prop('disabled', false).text('Launch Examination Sheet');
                         }, function() {
-                            $('#launch_gps_feedback').text('⚠️ Standing by. Tap launch to verify position data.').css('color', '#d97706');
-                            $('#launch_btn').prop('disabled', false).text('Launch Examination Sheet');
-                        }, { enableHighAccuracy: true, timeout: 5000 });
+                            $('#launch_gps_feedback').text('✕ GPS Signal Blocked. Ensure phone location services are active.').css('color', '#dc2626');
+                        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
                     }
                 });
             </script>
@@ -173,10 +161,6 @@
                 {% for message in messages %}
                     <div class="error-msg">{{ message }}</div>
                 {% endfor %}
-            {% endif %}
-
-            {% if error %}
-                <div class="error-msg">{{ error }}</div>
             {% endif %}
 
             <form action="{% url 'login_portal' %}" method="POST" id="main_form">
@@ -211,16 +195,17 @@
             </form>
 
             <script>
-                let gpsAcquired = false;
+                let activeWatchId = null;
 
                 function checkAndUnlockButton() {
                     const hasCourseSelected = $('#course_select').val() !== null && $('#course_select').val() !== "";
+                    const hasCoordinates = $('#lat_input').val() !== "" && $('#lat_input').val() !== undefined;
 
-                    if (gpsAcquired && hasCourseSelected) {
+                    if (hasCoordinates && hasCourseSelected) {
                         $('#start_btn').prop('disabled', false).text('Verify & Enter Examination');
                     } else {
                         $('#start_btn').prop('disabled', true);
-                        if (!gpsAcquired) {
+                        if (!hasCoordinates) {
                             $('#start_btn').text('Waiting for Verified Location...');
                         } else {
                             $('#start_btn').text('Select Course Code...');
@@ -247,49 +232,32 @@
                     }
                 });
 
-                function acquireStrictLocation() {
-                    gpsAcquired = false;
-                    $('#gps_feedback').text('Acquiring secure exam hall coordinates...').css('color', '#d97706');
-                    $('#start_btn').prop('disabled', true).text('Verifying Location...');
-
+                function initializeHardwareTracking() {
                     if ("geolocation" in navigator) {
-                        // 1. High accuracy check
-                        navigator.geolocation.getCurrentPosition(
+                        $('#gps_feedback').text('Connecting to native GPS antenna array...').css('color', '#d97706');
+
+                        if (activeWatchId) navigator.geolocation.clearWatch(activeWatchId);
+
+                        // Continuous active loop keeps mobile hardware awake
+                        activeWatchId = navigator.geolocation.watchPosition(
                             function(position) {
                                 document.getElementById('lat_input').value = position.coords.latitude;
                                 document.getElementById('lng_input').value = position.coords.longitude;
-                                gpsAcquired = true;
                                 $('#gps_feedback').text('✓ Location Verified Natively').css('color', '#059669');
                                 checkAndUnlockButton();
                             },
                             function(error) {
-                                console.log("Primary tracking failed. Trying standard fallback loop...");
-                                // 2. Cell tower fast fallback
-                                navigator.geolocation.getCurrentPosition(
-                                    function(fallbackPosition) {
-                                        document.getElementById('lat_input').value = fallbackPosition.coords.latitude;
-                                        document.getElementById('lng_input').value = fallbackPosition.coords.longitude;
-                                        gpsAcquired = true;
-                                        $('#gps_feedback').text('✓ Location Verified (Cellular Network)').css('color', '#059669');
-                                        checkAndUnlockButton();
-                                    },
-                                    function(fallbackError) {
-                                        gpsAcquired = false;
-                                        if (fallbackError.code === fallbackError.PERMISSION_DENIED) {
-                                            $('#gps_feedback').html('✕ Location Access Denied. Turn on site tracking in permissions.').css('color', '#dc2626');
-                                        } else {
-                                            $('#gps_feedback').html('✕ GPS Signal Blocked. <span id="retry_geo" style="text-decoration: underline; cursor: pointer; font-weight: bold; color: #b91c1c;">Tap to retry link</span>').css('color', '#dc2626');
-                                        }
-                                        checkAndUnlockButton();
-                                    },
-                                    { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
-                                );
+                                if (error.code === error.PERMISSION_DENIED) {
+                                    $('#gps_feedback').text('✕ Access Blocked. Enable location permissions in browser settings.').css('color', '#dc2626');
+                                } else {
+                                    $('#gps_feedback').text('✕ GPS Signal Blocked. Ensure phone GPS is on and step near a window.').css('color', '#dc2626');
+                                }
+                                checkAndUnlockButton();
                             },
-                            { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
+                            { enableHighAccuracy: true, maximumAge: 0 }
                         );
                     } else {
-                        $('#gps_feedback').text('✕ Geolocation completely unsupported.').css('color', '#dc2626');
-                        checkAndUnlockButton();
+                        $('#gps_feedback').text('✕ Browser hardware connection unsupported.').css('color', '#dc2626');
                     }
                 }
 
@@ -311,10 +279,7 @@
                 });
 
                 $(document).ready(function() {
-                    acquireStrictLocation();
-                    $(document).on('click', '#retry_geo', function() {
-                        acquireStrictLocation();
-                    });
+                    initializeHardwareTracking();
                 });
 
                 $('#course_select').change(checkAndUnlockButton);
