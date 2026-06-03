@@ -214,5 +214,23 @@
 
     $('#course_select').change(checkAndUnlockButton);
 </script>
+{% if is_authenticated %}
+    <div class="verification-success-box">
+        <h2>✓ Authorization Verified</h2>
+        <p>Welcome, <strong>{{ student_name }}</strong> ({{ index_number }})</p>
+        <p>You are logged into: <strong>{{ course.code }} - {{ course.title }}</strong></p>
+
+        <form action="{% url 'start_quiz' %}" method="POST" id="launch-exam-form">
+            {% csrf_token %}
+            <input type="hidden" name="lat" id="gps-lat" value="{{ request.POST.lat }}">
+            <input type="hidden" name="lng" id="gps-lng" value="{{ request.POST.lng }}">
+
+            <button type="submit" class="btn-start" style="background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%;">
+                Launch Examination Sheet
+            </button>
+        </form>
+    </div>
+{% else %}
+    {% endif %}
 </body>
 </html>

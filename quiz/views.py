@@ -56,7 +56,7 @@ def login_portal(request):
         request.session['authorized_course_id'] = course_id
 
         # Pass parameters safely to the start_quiz engine route
-        return render(request, 'quiz/start_landing.html', {
+        return render(request, 'quiz/login.html', {
             'course': student_check.course,
             'student_name': student_check.full_name,
             'index_number': student_check.index_number
