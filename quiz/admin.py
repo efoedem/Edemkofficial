@@ -1,7 +1,7 @@
 import csv
 from django.http import HttpResponse
 from django.contrib import admin
-from .models import Lecturer, Course, Question, StudentSubmission
+from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 
 
 @admin.register(Question)
@@ -61,3 +61,22 @@ class StudentSubmissionAdmin(admin.ModelAdmin):
 class LecturerAdmin(admin.ModelAdmin):
     list_display = ('user', 'staff_id')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'staff_id')
+
+
+    # This custom admin layout makes managing student lists incredibly easy
+    @admin.register(AllowedStudent)
+    class AllowedStudentAdmin(admin.ModelAdmin):
+        # Columns that show up on the main list dashboard view
+        list_display = ('index_number', 'full_name', 'course', 'has_taken_exam')
+
+        # Filter tools on the right sidebar to sort students by exam group
+        list_filter = ('course', 'has_taken_exam')
+
+        # Quick search bar at the top to find an index number instantly
+        search_fields = ('index_number', 'full_name')
+
+    # Keep your existing admin registrations here as well:
+    admin.site.register(Lecturer)
+    admin.site.register(Course)
+    admin.site.register(Question)
+    admin.site.register(StudentSubmission)
