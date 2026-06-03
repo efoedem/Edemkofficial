@@ -14,22 +14,20 @@
             {% csrf_token %}
 
             <div>
-    <select name="course_id" required style="padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: white; font-size: 0.85rem; color: #334155; font-weight: bold;">
-        <option value="" disabled selected>Select Target Course...</option>
+                <select name="course_id" required style="padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: white; font-size: 0.85rem; color: #334155; font-weight: bold;">
+                    <option value="" disabled selected>Select Target Course...</option>
 
-        {% for c in cl.model_admin.opts.apps.get_models.0.objects.all %}
-            {% if c.code %}
-                <option value="{{ c.id }}">{{ c.code }} - {{ c.title }} ({{ c.exam_name }})</option>
-            {% endif %}
-        {% endfor %}
-
-        {% if not cl.model_admin.opts.apps.get_models.0.objects.all %}
-            {% for c in cl.queryset.model.course.field.related_model.objects.all %}
-                <option value="{{ c.id }}">{{ c.code }} - {{ c.title }}</option>
-            {% endfor %}
-        {% endif %}
-    </select>
-</div>
+                    {% if cl.model_admin.model.course.field.related_model.objects.all %}
+                        {% for c in cl.model_admin.model.course.field.related_model.objects.all %}
+                            <option value="{{ c.id }}">{{ c.code }} - {{ c.title }} ({{ c.exam_name }})</option>
+                        {% endfor %}
+                    {% else %}
+                        {% for c in cl.queryset.model.course.field.related_model.objects.all %}
+                            <option value="{{ c.id }}">{{ c.code }} - {{ c.title }}</option>
+                        {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
 
             <div>
                 <input type="file" name="student_file" accept=".xlsx, .csv" required style="font-size: 0.85rem; color: #475569;">
