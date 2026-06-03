@@ -55,14 +55,16 @@ def login_portal(request):
         request.session['index_number'] = student_check.index_number
         request.session['authorized_course_id'] = course_id
 
-        # Pass parameters safely to the start_quiz engine route
+        # Render using your existing login.html instead of a missing file, passing lecturers along just in case
         return render(request, 'quiz/login.html', {
             'course': student_check.course,
             'student_name': student_check.full_name,
-            'index_number': student_check.index_number
+            'index_number': student_check.index_number,
+            'is_authenticated': True,
+            'lecturers': Lecturer.objects.all() # Keeps lecturer context alive if they need to reset
         })
 
-    # GET request: Render the streamlined portal selection template
+    # 🎯 FIX HERE: Fetch every active lecturer profile from the database and pass it to the GET view
     lecturers = Lecturer.objects.all()
     return render(request, 'quiz/login.html', {'lecturers': lecturers})
 
