@@ -27,7 +27,7 @@ from pypdf import PdfReader
 def login_portal(request):
     """
     Renders the unified login gatekeeper portal and verifies student authorization
-    against the database records before establishing a user context.
+    AND physical perimeter location before establishing a session context.
     """
     if request.method == "GET" and request.session.get('is_authenticated_student'):
         course_id = request.session.get('authorized_course_id')
@@ -44,24 +44,44 @@ def login_portal(request):
     if request.method == "POST":
         input_index = request.POST.get('index_number', '').strip().upper()
         course_id = request.POST.get('course_id')
+        user_lat = request.POST.get('lat')
+        user_lng = request.POST.get('lng')
 
-        # 1. Query database to see if this student is explicitly authorized for this exam
+        course = get_object_or_404(Course, id=course_id)
+
+        # === 1. STRICT LOCATION GATEWAY (FIRST PAGE) ===
+        if user_lat and user_lng:
+            try:
+                student_coords = (float(user_lat), float(user_lng))
+                hall_coords = (course.latitude, course.longitude)
+                distance = geodesic(student_coords, hall_coords).meters
+
+                if distance > course.radius_meters:
+                    messages.error(request, f"❌ ACCESS DENIED: You are {round(distance)}m away from the authorized exam perimeter zone.")
+                    return redirect('login_portal')
+            except ValueError:
+                messages.error(request, "❌ Location tracking stream parsing exception.")
+                return redirect('login_portal')
+        else:
+            messages.error(request, "❌ Location verification mandatory. Please enable GPS and allow browser access before logging in.")
+            return redirect('login_portal')
+
+        # === 2. REGISTRATION GATEWAY ===
         student_check = AllowedStudent.objects.filter(
             index_number=input_index,
             course_id=course_id
         ).first()
 
-        # 2. Strict Verification Gate
         if not student_check:
             messages.error(request, "❌ Access Denied: Your index number is not registered for this examination.")
             return redirect('login_portal')
 
-        # 3. Prevent duplicate exam entry breaches using the authorization model
+        # === 3. DUPLICATE SUBMISSION CHECK ===
         if student_check.has_taken_exam:
             messages.error(request, "🚫 Security Alert: You have already submitted this examination.")
             return redirect('login_portal')
 
-        # 4. Success: Secure identity metrics inside session context
+        # Establish session contexts
         request.session['student_name'] = student_check.full_name
         request.session['index_number'] = student_check.index_number
         request.session['authorized_course_id'] = course_id
@@ -73,18 +93,11 @@ def login_portal(request):
     return render(request, 'quiz/login.html', {'lecturers': lecturers})
 
 
-def get_courses(request):
-    lecturer_id = request.GET.get('lecturer_id')
-    courses = Course.objects.filter(lecturer_id=lecturer_id).values('id', 'code', 'title')
-    return JsonResponse(list(courses), safe=False)
-
-
 def start_quiz(request):
     """
-    Validates identity and active time brackets before generating the exam sheet.
-    Perimeter/Geolocation verification bypassed.
+    Validates dynamic parameters and entry time active windows.
+    No location checking here; already handled at login.
     """
-    # Safeguard route against raw URL tracking hits if session context is missing
     student_name = request.session.get('student_name')
     index_number = request.session.get('index_number')
     course_id = request.session.get('authorized_course_id')
@@ -96,7 +109,7 @@ def start_quiz(request):
     if request.method == "POST":
         course = get_object_or_404(Course, id=course_id)
 
-        # === 1. 🛡️ DUPLICATE ENTRANCE PERMISSION CONTROLLER ===
+        # Re-verify submission logs to prevent duplicate windows
         already_submitted = StudentSubmission.objects.filter(
             index_number=index_number,
             course=course
@@ -106,9 +119,8 @@ def start_quiz(request):
             messages.error(request, f"SECURITY LOCKOUT: Index Number {index_number} has an existing paper log.")
             return redirect('login_portal')
 
-        # === 2. SECURE DATETIME GATEKEEPER ===
+        # Secure Datetime Gatekeeper
         current_time = timezone.now()
-
         if current_time < course.start_time:
             expected_start = course.start_time.strftime("%I:%M %p (%d %b)")
             messages.error(request, f"EXAMINATION NOT YET ACTIVE: Scheduled to begin at {expected_start}.")
@@ -118,8 +130,6 @@ def start_quiz(request):
             messages.error(request, "ACCESS DENIED: The examination entry window has closed.")
             return redirect('login_portal')
 
-        # === 3. GEOLOCATION PERIMETER BYPASS ===
-        # Geolocation check removed. Directly deliver the exam blueprint layout.
         context = {
             'course': course,
             'questions': Question.objects.filter(course=course),

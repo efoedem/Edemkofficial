@@ -59,7 +59,7 @@
             text-align: left;
             line-height: 1.4;
         }
-        .gps-status { font-size: 0.8rem; color: #059669; font-weight: 600; margin-top: 0.75rem; text-align: left; line-height: 1.4; }
+        .gps-status { font-size: 0.8rem; color: #d97706; font-weight: 600; margin-top: 0.75rem; text-align: left; line-height: 1.4; }
 
         .verification-success-badge {
             background-color: #dcfce7;
@@ -96,10 +96,12 @@
     <div class="login-card">
 
         {% if is_authenticated %}
-            <!-- STATE A: IDENTITY VERIFIED -> START IMMEDIATELY -->
+            <!-- ========================================================== -->
+            <!-- STATE A: CONFIRMATION SCREEN (NO TIMEOUTS, READY TO GO)     -->
+            <!-- ========================================================== -->
             <span class="verification-success-badge">✓ Authorization Verified</span>
             <h2>Ready to Begin?</h2>
-            <p class="subtitle" style="margin-bottom: 1rem;">Confirm your details to initialize the exam paper</p>
+            <p class="subtitle" style="margin-bottom: 1rem;">Confirm your details to initialize the workspace lock interface</p>
 
             <div class="details-box">
                 <div class="details-row">
@@ -118,10 +120,7 @@
 
             <form action="{% url 'start_quiz' %}" method="POST" id="launch-exam-form">
                 {% csrf_token %}
-                <input type="hidden" name="lat" value="0.0">
-                <input type="hidden" name="lng" value="0.0">
-
-                <div id="launch_gps_feedback" class="gps-status">✓ Portal Session Synchronized Natively</div>
+                <div class="gps-status" style="color: #059669;">✓ Perimeter parameters checked and verified.</div>
 
                 <button type="submit" id="launch_btn">
                     Launch Examination Sheet
@@ -130,7 +129,9 @@
             <p class="warning-text">⚠️ Navigating away or changing tabs after launch triggers an instant freeze event.</p>
 
         {% else %}
-            <!-- STATE B: STANDARD LOGIN PANEL -->
+            <!-- ========================================================== -->
+            <!-- STATE B: INITIAL GATEKEEPER WITH LOCATION ENFORCEMENT       -->
+            <!-- ========================================================== -->
             <h2>Student Login</h2>
             <p class="subtitle">Enter your details to begin the examination</p>
 
@@ -143,8 +144,8 @@
             <form action="{% url 'login_portal' %}" method="POST" id="main_form">
                 {% csrf_token %}
 
-                <input type="hidden" name="lat" value="0.0">
-                <input type="hidden" name="lng" value="0.0">
+                <input type="hidden" name="lat" id="lat_input">
+                <input type="hidden" name="lng" id="lng_input">
 
                 <div class="input-group">
                     <label>Select Lecturer</label>
@@ -166,17 +167,27 @@
                     <input type="text" id="index_number_input" name="index_number" placeholder="Enter ID" required autocomplete="off">
                 </div>
 
-                <button type="submit" id="start_btn" disabled>Select Course Code...</button>
+                <div id="gps_feedback" class="gps-status">Acquiring satellite location fix...</div>
+
+                <button type="submit" id="start_btn" disabled>Waiting for GPS Fix...</button>
             </form>
 
             <script>
+                let activeWatchId = null;
+
                 function checkAndUnlockButton() {
                     const hasCourseSelected = $('#course_select').val() !== null && $('#course_select').val() !== "";
+                    const hasCoordinates = $('#lat_input').val() !== "" && $('#lat_input').val() !== undefined;
 
-                    if (hasCourseSelected) {
+                    if (hasCoordinates && hasCourseSelected) {
                         $('#start_btn').prop('disabled', false).text('Verify & Enter Examination');
                     } else {
-                        $('#start_btn').prop('disabled', true).text('Select Course Code...');
+                        $('#start_btn').prop('disabled', true);
+                        if (!hasCoordinates) {
+                            $('#start_btn').text('Waiting for Verified Location...');
+                        } else {
+                            $('#start_btn').text('Select Course Code...');
+                        }
                     }
                 }
 
@@ -197,6 +208,55 @@
                             }
                         });
                     }
+                });
+
+                function initializeHardwareTracking() {
+                    if ("geolocation" in navigator) {
+                        $('#gps_feedback').text('Connecting to native GPS antenna array...').css('color', '#d97706');
+
+                        if (activeWatchId) navigator.geolocation.clearWatch(activeWatchId);
+
+                        activeWatchId = navigator.geolocation.watchPosition(
+                            function(position) {
+                                document.getElementById('lat_input').value = position.coords.latitude;
+                                document.getElementById('lng_input').value = position.coords.longitude;
+                                $('#gps_feedback').text('✓ Location Synchronized Natively').css('color', '#059669');
+                                checkAndUnlockButton();
+                            },
+                            function(error) {
+                                if (error.code === error.PERMISSION_DENIED) {
+                                    $('#gps_feedback').text('✕ Access Blocked. Enable browser location parameters.').css('color', '#dc2626');
+                                } else {
+                                    $('#gps_feedback').text('✕ Core Telemetry Connection dropped. Ensure GPS hardware is enabled.').css('color', '#dc2626');
+                                }
+                                checkAndUnlockButton();
+                            },
+                            { enableHighAccuracy: true, maximumAge: 0 }
+                        );
+                    } else {
+                        $('#gps_feedback').text('✕ Browser hardware connection unsupported.').css('color', '#dc2626');
+                    }
+                }
+
+                document.getElementById('main_form').addEventListener('submit', function(event) {
+                    const rawIndex = document.getElementById('index_number_input').value.trim();
+                    const upperIndex = rawIndex.toUpperCase();
+                    const courseText = $("#course_select option:selected").text();
+
+                    const userConfirmed = confirm(
+                        `Please verify details before processing perimeter routing:\n\n` +
+                        `• Index Number: ${upperIndex}\n` +
+                        `• Examination: ${courseText}\n\n` +
+                        `Is your entry sequence fully accurate?`
+                    );
+
+                    if (!userConfirmed) {
+                        event.preventDefault();
+                    }
+                });
+
+                $(document).ready(function() {
+                    initializeHardwareTracking();
                 });
 
                 $('#course_select').change(checkAndUnlockButton);
