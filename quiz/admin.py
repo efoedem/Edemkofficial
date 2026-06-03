@@ -4,6 +4,9 @@ from django.contrib import admin
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 
 
+# ==========================================
+# 1. QUESTION ADMIN
+# ==========================================
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
     list_display = ('text', 'course', 'get_exam_name', 'q_type')
@@ -19,6 +22,9 @@ class QuestionAdmin(admin.ModelAdmin):
     get_exam_name.short_description = 'Exam Type'
 
 
+# ==========================================
+# 2. STUDENT SUBMISSION ADMIN
+# ==========================================
 @admin.register(StudentSubmission)
 class StudentSubmissionAdmin(admin.ModelAdmin):
     list_display = ('student_name', 'index_number', 'course', 'get_exam_name', 'score', 'submitted_at')
@@ -46,30 +52,33 @@ class StudentSubmissionAdmin(admin.ModelAdmin):
     export_to_csv.short_description = "Download Selected as Excel (CSV)"
 
 
+# ==========================================
+# 3. COURSE ADMIN (FIXED INDENTATION / UN-NESTED)
+# ==========================================
+@admin.register(Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = ('code', 'title', 'exam_name', 'duration_minutes', 'start_time', 'end_time')
+    list_filter = ('lecturer', 'start_time')
+    search_fields = ('code', 'title')
 
-    @admin.register(Course)
-    class CourseAdmin(admin.ModelAdmin):
-        list_display = ('code', 'title', 'exam_name', 'duration_minutes', 'start_time', 'end_time')
-        list_filter = ('lecturer', 'start_time')
-        search_fields = ('code', 'title')
-
-        # === Tells Django to use our upcoming template override for Course forms ===
-        change_form_template = "admin/quiz/course/change_form.html"
+    # === Tells Django to use our upcoming template override for Course forms ===
+    change_form_template = "admin/quiz/course/change_form.html"
 
 
+# ==========================================
+# 4. LECTURER ADMIN
+# ==========================================
 @admin.register(Lecturer)
 class LecturerAdmin(admin.ModelAdmin):
     list_display = ('user', 'staff_id')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'staff_id')
 
-    @admin.register(AllowedStudent)
-    class AllowedStudentAdmin(admin.ModelAdmin):
-        list_display = ('index_number', 'full_name', 'course', 'has_taken_exam')
-        list_filter = ('course', 'has_taken_exam')
-        search_fields = ('index_number', 'full_name')
 
-    # 2. Register your remaining core models (WITHOUT duplicating AllowedStudent)
-    admin.site.register(Lecturer)
-    admin.site.register(Course)
-    admin.site.register(Question)
-    admin.site.register(StudentSubmission)
+# ==========================================
+# 5. ALLOWED STUDENT ADMIN (FIXED INDENTATION / UN-NESTED)
+# ==========================================
+@admin.register(AllowedStudent)
+class AllowedStudentAdmin(admin.ModelAdmin):
+    list_display = ('index_number', 'full_name', 'course', 'has_taken_exam')
+    list_filter = ('course', 'has_taken_exam')
+    search_fields = ('index_number', 'full_name')
