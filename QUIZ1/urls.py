@@ -61,4 +61,6 @@ urlpatterns = [
     path('api/get-courses/', views.get_courses, name='get_courses'),
     path('start-quiz/', views.start_quiz, name='start_quiz'),
     path('submit-quiz/', views.submit_quiz, name='submit_quiz'),
+# Add this line within the urlpatterns array inside QUIZ1/urls.py
+    path('admin/allowedstudent/bulk-upload/', views.upload_allowed_students, name='upload_allowed_students'),
 ]

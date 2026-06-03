@@ -77,8 +77,11 @@ class LecturerAdmin(admin.ModelAdmin):
 # ==========================================
 # 5. ALLOWED STUDENT ADMIN (FIXED INDENTATION / UN-NESTED)
 # ==========================================
-@admin.register(AllowedStudent)
-class AllowedStudentAdmin(admin.ModelAdmin):
-    list_display = ('index_number', 'full_name', 'course', 'has_taken_exam')
-    list_filter = ('course', 'has_taken_exam')
-    search_fields = ('index_number', 'full_name')
+    @admin.register(AllowedStudent)
+    class AllowedStudentAdmin(admin.ModelAdmin):
+        list_display = ('index_number', 'full_name', 'course', 'has_taken_exam')
+        list_filter = ('course', 'has_taken_exam')
+        search_fields = ('index_number', 'full_name')
+
+        # Links dashboard template file to inject our custom drag-and-drop form
+        change_list_template = "admin/quiz/allowedstudent/change_list.html"

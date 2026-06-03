@@ -1,0 +1,36 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+
+    <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: left; display: inline-block; width: 100%; max-width: 600px;">
+        <h3 style="margin-top: 0; color: #1e293b; font-size: 1.1rem; font-weight: 600;">📋 Bulk Upload Class Roster (.xlsx / .csv)</h3>
+        <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 15px;">
+            File format requirement: Column 1 = **Index Number**, Column 2 = **Full Name** (No headings required).
+        </p>
+
+        <form action="{% url 'upload_allowed_students' %}" method="POST" enctype="multipart/form-data" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+            {% csrf_token %}
+
+            <div>
+                <select name="course_id" required style="padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: white; font-size: 0.85rem;">
+                    <option value="" disabled selected>Select Target Course...</option>
+                    {% for c in cl.queryset.model.course.field.related_model.objects.all %}
+                        <option value="{{ c.id }}">{{ c.code }} - {{ c.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <input type="file" name="student_file" accept=".xlsx, .csv" required style="font-size: 0.85rem; color: #475569;">
+            </div>
+
+            <div>
+                <button type="submit" class="button" style="background: #2563eb; color: white; padding: 6px 15px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                    Upload Roster
+                </button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

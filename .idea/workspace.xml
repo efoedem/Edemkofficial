@@ -5,12 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5622357e-2275-42d1-8778-b6b58579ba1e" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/templates/admin/quiz/allowedstudent/change_list.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/QUIZ1/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUIZ1/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/QUIZ1/wsgi.py" beforeDir="false" afterPath="$PROJECT_DIR$/QUIZ1/wsgi.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/quiz/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/quiz/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/admin.py" beforeDir="false" afterPath="$PROJECT_DIR$/quiz/admin.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/migrations/0001_initial.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/migrations/0002_course_duration_minutes_course_exam_name_and_more.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/migrations/0003_studentsubmission_submitted_answers.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/migrations/0004_alter_course_code_alter_course_exam_name_and_more.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/migrations/0005_course_end_time_course_start_time_alter_course_code_and_more.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/migrations/0006_alter_course_code.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/migrations/0007_alter_question_q_type.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/quiz/migrations/0008_allowedstudent.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/quiz/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/quiz/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/admin/csv_form.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/admin/csv_form.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

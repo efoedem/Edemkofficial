@@ -5,15 +5,25 @@ import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from geopy.distance import geodesic
-from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 from django.utils import timezone
 
+from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
+
 # Binary document file parsers
-import openpyxl
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None
+
 from docx import Document
 from pypdf import PdfReader
 
+
+# ==========================================================
+#             STUDENT VERIFICATION & PORTAL VIEWS
+# ==========================================================
 
 def login_portal(request):
     """
@@ -187,7 +197,7 @@ def submit_quiz(request):
 
 
 # ==========================================================
-#             ADVANCED BULK IMPORT ENGINE VIEWS
+#             ADVANCED BULK QUESTIONS IMPORT ENGINE
 # ==========================================================
 
 def import_questions_page(request):
@@ -221,6 +231,8 @@ def import_questions_all_formats(request):
     try:
         # === 1. DIRECT MICROSOFT EXCEL PARSER (.xlsx) ===
         if ext == '.xlsx':
+            if not openpyxl:
+                return HttpResponse("Server lacks Excel processor installation (openpyxl).", status=500)
             wb = openpyxl.load_workbook(uploaded_file, data_only=True)
             sheet = wb.active
 
@@ -326,6 +338,8 @@ def import_questions_all_formats(request):
 def download_excel_template(request):
     if not request.user.is_staff:
         return redirect('login_portal')
+    if not openpyxl:
+        return HttpResponse("Excel layout components missing on environment runtime.", status=500)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -373,3 +387,90 @@ def download_word_template(request):
     response['Content-Disposition'] = 'attachment; filename="question_import_blueprint.docx"'
     doc.save(response)
     return response
+
+
+# ==========================================================
+#         🔥 NEW: ALLOWED STUDENTS BULK ROSTER UPLOADER
+# ==========================================================
+
+@staff_member_required
+def upload_allowed_students(request):
+    """Processes incoming class rosters (.xlsx / .csv) and registers students into an exam."""
+    if request.method == "POST":
+        course_id = request.POST.get("course_id")
+        file_ref = request.FILES.get("student_file")
+
+        if not course_id or not file_ref:
+            messages.error(request, "Please select a valid course and attach a roster file.")
+            return redirect("admin:quiz_allowedstudent_changelist")
+
+        try:
+            course = Course.objects.get(id=course_id)
+            filename = file_ref.name.lower()
+            students_to_create = []
+            duplicate_count = 0
+            success_count = 0
+
+            # --- A. PROCESS EXCEL (.XLSX) ROSTERS ---
+            if filename.endswith(".xlsx"):
+                if not openpyxl:
+                    messages.error(request, "Server lacks Excel processor installation (openpyxl).")
+                    return redirect("admin:quiz_allowedstudent_changelist")
+
+                wb = openpyxl.load_workbook(file_ref, data_only=True)
+                sheet = wb.active
+
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    if not row or not row[0]:
+                        continue
+                    idx = str(row[0]).strip().upper()
+                    name = str(row[1]).strip() if len(row) > 1 and row[1] else "Unknown Student"
+
+                    if AllowedStudent.objects.filter(index_number=idx, course=course).exists():
+                        duplicate_count += 1
+                        continue
+
+                    students_to_create.append(AllowedStudent(course=course, index_number=idx, full_name=name))
+
+            # --- B. PROCESS STANDARD CSV (.CSV) ROSTERS ---
+            elif filename.endswith(".csv"):
+                try:
+                    decoded_file = file_ref.read().decode('utf-8-sig').splitlines()
+                except UnicodeDecodeError:
+                    file_ref.seek(0)
+                    decoded_file = file_ref.read().decode('latin-1').splitlines()
+
+                reader = csv.reader(decoded_file)
+                next(reader, None)  # Skip table header row
+
+                for row in reader:
+                    if not row or not row[0]:
+                        continue
+                    idx = str(row[0]).strip().upper()
+                    name = str(row[1]).strip() if len(row) > 1 and row[1] else "Unknown Student"
+
+                    if AllowedStudent.objects.filter(index_number=idx, course=course).exists():
+                        duplicate_count += 1
+                        continue
+
+                    students_to_create.append(AllowedStudent(course=course, index_number=idx, full_name=name))
+            else:
+                messages.error(request, "Unsupported file format. Please upload an .xlsx or .csv roster.")
+                return redirect("admin:quiz_allowedstudent_changelist")
+
+            # High-speed relational bulk insertion
+            if students_to_create:
+                AllowedStudent.objects.bulk_create(students_to_create)
+                success_count = len(students_to_create)
+
+            messages.success(
+                request,
+                f"Roster uploaded successfully! Registered: {success_count} students. Skipped: {duplicate_count} existing duplicate entries."
+            )
+
+        except Course.DoesNotExist:
+            messages.error(request, "Selected course verification mapping failed.")
+        except Exception as e:
+            messages.error(request, f"Error processing file layout: {str(e)}")
+
+    return redirect("admin:quiz_allowedstudent_changelist")
