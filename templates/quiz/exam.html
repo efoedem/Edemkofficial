@@ -38,17 +38,16 @@
             overflow: hidden;
         }
 
-        /* 📱 RESPONSIVE CONTENT HOUSING GRID */
+        /* RESPONSIVE CONTENT HOUSING GRID */
         .scrollable-content {
             flex: 1;
             height: 100%;
             overflow-y: auto;
-            padding: 30px;
-            padding-right: 220px; /* Leave space clear for the desktop camera box */
+            padding: 30px 220px 30px 30px; /* Merged padding declarations to prevent duplication */
             transition: padding-right 0.2s ease;
         }
 
-        /* 📸 RESPONSIVE VIDEO VIEWPORT ARCHITECTURE */
+        /* RESPONSIVE VIDEO VIEWPORT ARCHITECTURE */
         #video {
             width: 180px;
             position: fixed;
@@ -126,7 +125,7 @@
             text-align: center;
         }
 
-        /* 🚀 MASTER MEDIA QUERY RE-ALIGNMENT FOR TARGET MOBILE PANELS */
+        /* MASTER MEDIA QUERY RE-ALIGNMENT FOR TARGET MOBILE PANELS */
         @media (max-width: 768px) {
             .exam-header {
                 padding: 10px 15px;
@@ -136,8 +135,7 @@
             }
 
             .scrollable-content {
-                padding: 15px;
-                padding-right: 15px; /* Clear out desktop layout side space */
+                padding: 15px; /* Clean single declaration override */
             }
 
             .container {
@@ -150,10 +148,9 @@
             }
 
             button.submit-btn {
-                width: 100%; /* Stretch button block for easy touch targeting */
+                width: 100%;
             }
 
-            /* 📌 Anchor proctor feed safely to bottom right corner */
             #video {
                 width: 115px;
                 top: auto;
@@ -231,13 +228,11 @@
     const courseId = "{{ course.id }}";
     const studentIndex = "{{ index_number }}";
 
-    // Create a unique key specific to this student and this exam session
-    const storageKeyPrefix = `exam_${courseId}_${studentIndex}_`;
-    const timerStorageKey = storageKeyPrefix + 'time_left';
-    const answersStorageKey = storageKeyPrefix + 'saved_answers';
+    const storageKeyPrefix = "exam_" + courseId + "_" + studentIndex + "_";
+    const timerStorageKey = storageKeyPrefix + "time_left";
+    const answersStorageKey = storageKeyPrefix + "saved_answers";
 
-    // === 1. STATEFUL COUNTDOWN CHRONOMETER ENGINE ===
-    let totalDurationMs = {{ duration_ms }};
+    let totalDurationMs = parseInt("{{ duration_ms|default:'0' }}", 10);
     let timeLeft;
 
     if (localStorage.getItem(timerStorageKey)) {
@@ -256,7 +251,7 @@
 
         let mins = Math.floor(timeLeft / 60000);
         let secs = Math.floor((timeLeft % 60000) / 1000);
-        timerDisplay.innerHTML = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        timerDisplay.innerHTML = mins + ":" + (secs < 10 ? "0" : "") + secs;
 
         if (timeLeft <= 0) {
             clearInterval(countdown);
@@ -267,8 +262,6 @@
         }
     }, 1000);
 
-
-    // === 2. PERSISTENT INPUT SAVING ENGINE ===
     function restoreSavedAnswers() {
         const savedAnswersRaw = localStorage.getItem(answersStorageKey);
         if (savedAnswersRaw) {
@@ -276,11 +269,11 @@
 
             Object.keys(savedAnswers).forEach(name => {
                 const value = savedAnswers[name];
-                const inputElement = document.querySelector(`[name="${name}"]`);
+                const inputElement = document.querySelector('[name="' + name + '"]');
 
                 if (inputElement) {
                     if (inputElement.type === 'radio') {
-                        const targetRadio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+                        const targetRadio = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
                         if (targetRadio) targetRadio.checked = true;
                     } else {
                         inputElement.value = value;
@@ -305,8 +298,6 @@
     quizForm.addEventListener('change', saveCurrentAnswers);
     quizForm.addEventListener('input', saveCurrentAnswers);
 
-
-    // === 3. CLEAN UP UTILITIES ===
     function clearExamStorage() {
         localStorage.removeItem(timerStorageKey);
         localStorage.removeItem(answersStorageKey);
@@ -322,7 +313,7 @@
         const radioGroups = new Set();
         document.querySelectorAll('input[type="radio"]').forEach(r => radioGroups.add(r.name));
         radioGroups.forEach(name => {
-            if (document.querySelector(`input[name="${name}"]:checked`)) answeredCount++;
+            if (document.querySelector('input[name="' + name + '"]:checked')) answeredCount++;
         });
 
         document.querySelectorAll('input[type="text"], textarea').forEach(el => {
@@ -331,7 +322,7 @@
 
         let message = "Are you sure you want to finalize and submit your examination?";
         if (answeredCount < totalQuestions) {
-            message = `⚠️ Warning: You have only answered ${answeredCount} out of ${totalQuestions} questions.\n\nAre you absolutely sure you want to submit your paper with missing answers?`;
+            message = "⚠️ Warning: You have only answered " + answeredCount + " out of " + totalQuestions + " questions.\n\nAre you absolutely sure you want to submit your paper?";
         }
 
         if (confirm(message)) {
@@ -342,12 +333,8 @@
         return false;
     }
 
-
-    // === 4. INITIALIZATION LAUNCH PROCEDURES ===
     restoreSavedAnswers();
 
-
-    // === 5. EXISTING SECURITY POLICIES (CAM, KEYBOARD & GEOLOCATION) ===
     navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => { document.getElementById('video').srcObject = stream; })
         .catch(() => { alert("Proctoring Error: Active camera verification mandatory."); window.location.href="/"; });
@@ -380,47 +367,41 @@
 
     function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
         const R = 6371e3;
-        const phi1 = lat1 * Math.PI/180; const phi2 = lat2 * Math.PI/180;
-        const deltaPhi = (lat2-lat1) * Math.PI/180; const deltaLambda = (lon2-lon1) * Math.PI/180;
+        const phi1 = lat1 * Math.PI/180;
+        const phi2 = lat2 * Math.PI/180;
+        const deltaPhi = (lat2-lat1) * Math.PI/180;
+        const deltaLambda = (lon2-lon1) * Math.PI/180;
         const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
         return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
     navigator.geolocation.getCurrentPosition((pos) => {
-        const distance = calculateHaversineDistance(pos.coords.latitude, pos.coords.longitude, {{ course.latitude }}, {{ course.longitude }});
-        if (distance > {{ course.radius_meters }}) {
-            document.body.innerHTML = `
-                <div class="error-overlay">
-                    <h1 style="color:#ef4444;">ACCESS DENIED</h1>
-                    <p style="margin-top:10px; color:#64748b;">You are located ${Math.round(distance)}m outside authorized perimeter barriers.</p>
-                    <button onclick="window.location.href='/'" style="margin-top:20px; background:#2563eb; color:white; padding:10px 20px; border:none; border-radius:6px; cursor:pointer;">Return</button>
-                </div>`;
+        const courseLat = parseFloat("{{ course.latitude|default:'0' }}");
+        const courseLon = parseFloat("{{ course.longitude|default:'0' }}");
+        const radiusMeters = parseInt("{{ course.radius_meters|default:'500' }}", 10);
+
+        const distance = calculateHaversineDistance(pos.coords.latitude, pos.coords.longitude, courseLat, courseLon);
+        if (distance > radiusMeters) {
+            document.body.innerHTML = '<div class="error-overlay"><h1 style="color:#ef4444;">ACCESS DENIED</h1><p style="margin-top:10px; color:#64748b;">You are located outside authorized perimeter barriers.</p></div>';
         }
     }, (err) => { alert("Active geolocation metrics mandatory."); window.location.href = "/"; }, { enableHighAccuracy: false });
 
-
-    // === 6. 🛡️ BROWSER ARROW NAVIGATION BREACH LOCKOUT ENGINE ===
+    // === BROWSER ARROW NAVIGATION BREACH LOCKOUT ENGINE ===
     history.pushState(null, null, window.location.href);
 
     window.addEventListener('popstate', function (event) {
         history.pushState(null, null, window.location.href);
         document.getElementById('security_breach_flag').value = "true";
-
-        if (typeof clearExamStorage === 'function') {
-            clearExamStorage();
-        }
-
+        clearExamStorage();
         isAutoSubmitting = true;
-        alert("🚫 EXAM TERMINATED!\nUsing the browser Back/Forward navigation arrows is strictly forbidden. Submitting paper immediately.");
+        alert("🚫 EXAM TERMINATED!\nUsing browser navigation navigation is forbidden. Submitting paper immediately.");
         document.getElementById('quizForm').submit();
     });
 
     window.addEventListener('pageshow', function (event) {
         if (event.persisted) {
             document.getElementById('security_breach_flag').value = "true";
-            if (typeof clearExamStorage === 'function') {
-                clearExamStorage();
-            }
+            clearExamStorage();
             isAutoSubmitting = true;
             document.getElementById('quizForm').submit();
         }
