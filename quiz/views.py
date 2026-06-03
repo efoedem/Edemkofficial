@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 
+# Binary document file parsers
 try:
     import openpyxl
 except ImportError:
@@ -49,7 +50,7 @@ def login_portal(request):
 
         course = get_object_or_404(Course, id=course_id)
 
-        # === 1. STRICT LOCATION GATEWAY (FIRST PAGE) ===
+        # === 1. STRICT LOCATION GATEWAY (FIRST PAGE ONLY) ===
         if user_lat and user_lng:
             try:
                 student_coords = (float(user_lat), float(user_lng))
@@ -96,7 +97,7 @@ def login_portal(request):
 def start_quiz(request):
     """
     Validates dynamic parameters and entry time active windows.
-    No location checking here; already handled at login.
+    No location checking here; already handled at login screen gate.
     """
     student_name = request.session.get('student_name')
     index_number = request.session.get('index_number')
@@ -187,117 +188,6 @@ def submit_quiz(request):
         })
     return redirect('login_portal')
 
-    # (Rest of bulk import methods remain unmodified...)
-
-    if request.method == "POST":
-        user_lat = request.POST.get('lat')
-        user_lng = request.POST.get('lng')
-
-        course = get_object_or_404(Course, id=course_id)
-
-        # === 1. 🛡️ DUPLICATE ENTRANCE PERMISSION CONTROLLER ===
-        already_submitted = StudentSubmission.objects.filter(
-            index_number=index_number,
-            course=course
-        ).exists()
-
-        if already_submitted:
-            messages.error(request, f"SECURITY LOCKOUT: Index Number {index_number} has an existing paper log.")
-            return redirect('login_portal')
-
-        # === 2. SECURE DATETIME GATEKEEPER ===
-        current_time = timezone.now()
-
-        if current_time < course.start_time:
-            expected_start = course.start_time.strftime("%I:%M %p (%d %b)")
-            messages.error(request, f"EXAMINATION NOT YET ACTIVE: Scheduled to begin at {expected_start}.")
-            return redirect('login_portal')
-
-        if current_time > course.end_time:
-            messages.error(request, "ACCESS DENIED: The examination entry window has closed.")
-            return redirect('login_portal')
-
-        # === 3. GEOLOCATION PERIMETER VERIFICATION ===
-        if user_lat and user_lng:
-            try:
-                student_coords = (float(user_lat), float(user_lng))
-                hall_coords = (course.latitude, course.longitude)
-                distance = geodesic(student_coords, hall_coords).meters
-
-                if distance > course.radius_meters:
-                    messages.error(request,
-                                   f"ACCESS DENIED: You are {round(distance)}m away from the authorized perimeter zone.")
-                    return redirect('login_portal')
-            except ValueError:
-                messages.error(request, "Invalid hardware location coordinate stream parsing exception.")
-                return redirect('login_portal')
-        else:
-            messages.error(request, "Location tracking verification mandatory. Please enable GPS access.")
-            return redirect('login_portal')
-
-        # Everything matches securely: Deliver exam blueprint container layout
-        context = {
-            'course': course,
-            'questions': Question.objects.filter(course=course),
-            'student_name': student_name,
-            'index_number': index_number,
-            'duration_ms': course.duration_minutes * 60 * 1000
-        }
-        return render(request, 'quiz/exam.html', context)
-
-    return redirect('login_portal')
-
-
-def submit_quiz(request):
-    if request.method == "POST":
-        full_name = request.POST.get('full_name', 'Unknown Student').strip()
-        index_number = request.POST.get('index_number', '000000').strip().upper()
-        course_id = request.POST.get('course_id')
-        security_breach = request.POST.get('security_breach', 'false')
-
-        course_obj = get_object_or_404(Course, id=course_id)
-
-        # Double check submission existence directly at the database submission pipeline
-        if StudentSubmission.objects.filter(index_number=index_number, course=course_obj).exists():
-            return HttpResponse("Form processing rejected: Duplicate paper submission detected for this index profile.",
-                                status=403)
-
-        answers = {key: value for key, value in request.POST.items() if key.startswith('q')}
-        all_questions = Question.objects.filter(course=course_obj)
-
-        correct_count = 0
-        for q in all_questions:
-            submitted_val = answers.get(f'q{q.id}')
-            if submitted_val:
-                if str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
-                    correct_count += 1
-
-        display_name = full_name
-        if security_breach == "true":
-            display_name += " [⚠️ TERMINATED FOR TAB SWITCHING]"
-
-        # Save student submission logs securely
-        StudentSubmission.objects.create(
-            student_name=display_name,
-            index_number=index_number,
-            course=course_obj,
-            submitted_answers=json.dumps(answers),
-            score=float(correct_count)
-        )
-
-        # Toggle structural lookup record flag to lock student out of subsequent portal attempts
-        AllowedStudent.objects.filter(index_number=index_number, course=course_obj).update(has_taken_exam=True)
-
-        # Clean out temporary workspace registration details from active device sessions
-        request.session.flush()
-
-        return render(request, 'quiz/submitted.html', {
-            'student_name': full_name,
-            'score': int(correct_count),
-            'show_score': False if security_breach == "true" else course_obj.show_scores
-        })
-    return redirect('login_portal')
-
 
 # ==========================================================
 #             ADVANCED BULK QUESTIONS IMPORT ENGINE
@@ -332,7 +222,6 @@ def import_questions_all_formats(request):
     }
 
     try:
-        # === 1. DIRECT MICROSOFT EXCEL PARSER (.xlsx) ===
         if ext == '.xlsx':
             if not openpyxl:
                 return HttpResponse("Server lacks Excel processor installation (openpyxl).", status=500)
@@ -355,7 +244,6 @@ def import_questions_all_formats(request):
                         correct_answer=str(row[6]).strip()
                     )
 
-        # === 2. MICROSOFT WORD GRID PARSER (.docx) ===
         elif ext == '.docx':
             doc = Document(uploaded_file)
             if doc.tables:
@@ -379,7 +267,6 @@ def import_questions_all_formats(request):
                 return HttpResponse("Word document parsing error: Could not find structured table grid layout.",
                                     status=400)
 
-        # === 3. PORTABLE DOCUMENT FORMAT SCANNER (.pdf) ===
         elif ext == '.pdf':
             reader = PdfReader(uploaded_file)
             full_text = ""
@@ -401,7 +288,6 @@ def import_questions_all_formats(request):
                         correct_answer=parts[6].strip()
                     )
 
-        # === 4. NATIVE ENCODING COMPLIANT CSV PARSER (.csv) ===
         elif ext == '.csv':
             try:
                 decoded_file = uploaded_file.read().decode('utf-8-sig')
@@ -493,7 +379,7 @@ def download_word_template(request):
 
 
 # ==========================================================
-#         🔥 NEW: ALLOWED STUDENTS BULK ROSTER UPLOADER
+#         🔥 ALLOWED STUDENTS BULK ROSTER UPLOADER
 # ==========================================================
 
 @staff_member_required
@@ -514,7 +400,6 @@ def upload_allowed_students(request):
             duplicate_count = 0
             success_count = 0
 
-            # --- A. PROCESS EXCEL (.XLSX) ROSTERS ---
             if filename.endswith(".xlsx"):
                 if not openpyxl:
                     messages.error(request, "Server lacks Excel processor installation (openpyxl).")
@@ -535,7 +420,6 @@ def upload_allowed_students(request):
 
                     students_to_create.append(AllowedStudent(course=course, index_number=idx, full_name=name))
 
-            # --- B. PROCESS STANDARD CSV (.CSV) ROSTERS ---
             elif filename.endswith(".csv"):
                 try:
                     decoded_file = file_ref.read().decode('utf-8-sig').splitlines()
@@ -544,7 +428,7 @@ def upload_allowed_students(request):
                     decoded_file = file_ref.read().decode('latin-1').splitlines()
 
                 reader = csv.reader(decoded_file)
-                next(reader, None)  # Skip table header row
+                next(reader, None)
 
                 for row in reader:
                     if not row or not row[0]:
@@ -561,7 +445,6 @@ def upload_allowed_students(request):
                 messages.error(request, "Unsupported file format. Please upload an .xlsx or .csv roster.")
                 return redirect("admin:quiz_allowedstudent_changelist")
 
-            # High-speed relational bulk insertion
             if students_to_create:
                 AllowedStudent.objects.bulk_create(students_to_create)
                 success_count = len(students_to_create)
