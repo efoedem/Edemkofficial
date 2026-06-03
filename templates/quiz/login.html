@@ -96,9 +96,6 @@
     <div class="login-card">
 
         {% if is_authenticated %}
-            <!-- ========================================================== -->
-            <!-- STATE A: STUDENT IS AUTHENTICATED -> LAUNCH SHEET PORTAL  -->
-            <!-- ========================================================== -->
             <span class="verification-success-badge">✓ Authorization Verified</span>
             <h2>Ready to Begin?</h2>
             <p class="subtitle" style="margin-bottom: 1rem;">Confirm your details to initialize the workspace lock interface</p>
@@ -125,14 +122,14 @@
 
                 <div id="launch_gps_feedback" class="gps-status">Verifying secure perimeter link...</div>
 
-                <button type="button" id="launch_btn" onclick="captureHardwareCoordinatesAndSubmit()" disabled>
+                <button type="button" id="launch_btn" onclick="executeFinalLaunch()" disabled>
                     Waiting for Location Link...
                 </button>
             </form>
             <p class="warning-text">⚠️ Navigating away or changing tabs after launch triggers an instant freeze event.</p>
 
             <script>
-                function captureHardwareCoordinatesAndSubmit() {
+                function executeFinalLaunch() {
                     $('#launch_gps_feedback').text('Pinpointing exam hall coordinates...').css('color', '#d97706');
                     $('#launch_btn').prop('disabled', true).text('Launching sheet...');
 
@@ -144,18 +141,16 @@
                                 document.getElementById('launch-exam-form').submit();
                             },
                             function(error) {
-                                alert("GPS Pipeline Error: Re-verify that your device location is active and permitted for this browser tab.");
+                                alert("GPS Pipeline Error: Re-verify that your device location is active and permitted.");
                                 $('#launch_gps_feedback').text('✕ Core Telemetry Stream Failed').css('color', '#dc2626');
                                 $('#launch_btn').prop('disabled', false).text('Retry Launch Sequence');
                             },
                             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                         );
-                    } else {
-                        alert("Browser hardware reporting profile unsupported.");
                     }
                 }
 
-                function syncMobileLaunchLocation() {
+                $(document).ready(function() {
                     if (navigator.geolocation) {
                         navigator.geolocation.getCurrentPosition(function(position) {
                             document.getElementById('launch_lat').value = position.coords.latitude;
@@ -163,22 +158,14 @@
                             $('#launch_gps_feedback').text('✓ Location Synchronized Natively').css('color', '#059669');
                             $('#launch_btn').prop('disabled', false).text('Launch Examination Sheet');
                         }, function() {
-                            // Fallback for launch window if precise high accuracy stalls out
                             $('#launch_gps_feedback').text('⚠️ Standing by. Tap launch to verify position data.').css('color', '#d97706');
                             $('#launch_btn').prop('disabled', false).text('Launch Examination Sheet');
                         }, { enableHighAccuracy: true, timeout: 5000 });
                     }
-                }
-
-                $(document).ready(function() {
-                    syncMobileLaunchLocation();
                 });
             </script>
 
         {% else %}
-            <!-- ========================================================== -->
-            <!-- STATE B: STANDARD LOGIN PANEL WITH HARDWARE TIMEOUT FIXES   -->
-            <!-- ========================================================== -->
             <h2>Student Login</h2>
             <p class="subtitle">Enter your details to begin the examination</p>
 
@@ -241,7 +228,6 @@
                     }
                 }
 
-                // Dynamic Ajax Course loader
                 $('#lecturer_select').change(function() {
                     const lecturerId = $(this).val();
                     if (lecturerId) {
@@ -261,52 +247,48 @@
                     }
                 });
 
-                // Core Login Geolocation Pipeline with smart mobile cell-tower fallback
                 function acquireStrictLocation() {
                     gpsAcquired = false;
                     $('#gps_feedback').text('Acquiring secure exam hall coordinates...').css('color', '#d97706');
                     $('#start_btn').prop('disabled', true).text('Verifying Location...');
 
                     if ("geolocation" in navigator) {
-                        // Attempt 1: Strict high accuracy satellite hardware handshake (5-second limit)
+                        // 1. High accuracy check
                         navigator.geolocation.getCurrentPosition(
                             function(position) {
                                 document.getElementById('lat_input').value = position.coords.latitude;
                                 document.getElementById('lng_input').value = position.coords.longitude;
-
                                 gpsAcquired = true;
                                 $('#gps_feedback').text('✓ Location Verified Natively').css('color', '#059669');
                                 checkAndUnlockButton();
                             },
                             function(error) {
-                                console.log("Primary GPS timeout or restriction encountered. Testing cell network fallback...");
-
-                                // Attempt 2: Cell-Tower/Wi-Fi fast geolocation caching fallback (Runs if hardware stalls)
+                                console.log("Primary tracking failed. Trying standard fallback loop...");
+                                // 2. Cell tower fast fallback
                                 navigator.geolocation.getCurrentPosition(
                                     function(fallbackPosition) {
                                         document.getElementById('lat_input').value = fallbackPosition.coords.latitude;
                                         document.getElementById('lng_input').value = fallbackPosition.coords.longitude;
-
                                         gpsAcquired = true;
-                                        $('#gps_feedback').text('✓ Location Verified (Mobile Network Loop)').css('color', '#059669');
+                                        $('#gps_feedback').text('✓ Location Verified (Cellular Network)').css('color', '#059669');
                                         checkAndUnlockButton();
                                     },
                                     function(fallbackError) {
                                         gpsAcquired = false;
                                         if (fallbackError.code === fallbackError.PERMISSION_DENIED) {
-                                            $('#gps_feedback').html('✕ Location Access Denied. Allow location tracking in your browser site permissions.').css('color', '#dc2626');
+                                            $('#gps_feedback').html('✕ Location Access Denied. Turn on site tracking in permissions.').css('color', '#dc2626');
                                         } else {
-                                            $('#gps_feedback').html('✕ GPS Signal Blocked. <span id="retry_geo" style="text-decoration: underline; cursor: pointer; font-weight: bold; color: #b91c1c;">Tap here to wake up telemetry tracker</span>').css('color', '#dc2626');
+                                            $('#gps_feedback').html('✕ GPS Signal Blocked. <span id="retry_geo" style="text-decoration: underline; cursor: pointer; font-weight: bold; color: #b91c1c;">Tap to retry link</span>').css('color', '#dc2626');
                                         }
                                         checkAndUnlockButton();
                                     },
                                     { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
                                 );
                             },
-                            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                            { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
                         );
                     } else {
-                        $('#gps_feedback').text('✕ Browser security profiles unsupported. Use Chrome or Safari.').css('color', '#dc2626');
+                        $('#gps_feedback').text('✕ Geolocation completely unsupported.').css('color', '#dc2626');
                         checkAndUnlockButton();
                     }
                 }
