@@ -9,6 +9,7 @@
     <style>
         :root {
             --primary: #2563eb;
+            --success: #059669;
             --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             --glass: rgba(255, 255, 255, 0.9);
         }
@@ -59,178 +60,257 @@
             line-height: 1.4;
         }
         .gps-status { font-size: 0.8rem; color: #d97706; font-weight: 600; margin-top: 0.75rem; text-align: left; line-height: 1.4; }
+
+        .verification-success-badge {
+            background-color: #dcfce7;
+            color: #15803d;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+        .details-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+            text-align: left;
+        }
+        .details-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .details-row:last-child { margin-bottom: 0; }
+        .details-row .label { color: #64748b; }
+        .details-row .value { font-weight: 600; color: #334155; }
+        .warning-text { color: #b91c1c; font-size: 0.75rem; margin-top: 1rem; font-weight: 500; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="login-card">
-        <h2>Student Login</h2>
-        <p class="subtitle">Enter your details to begin the examination</p>
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="error-msg">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
+        {% if is_authenticated %}
+            <span class="verification-success-badge">✓ Authorization Verified</span>
+            <h2>Ready to Begin?</h2>
+            <p class="subtitle" style="margin-bottom: 1rem;">Confirm your details to initialize the workspace lock interface</p>
 
-        {% if error %}
-            <div class="error-msg">{{ error }}</div>
-        {% endif %}
-
-        <form action="{% url 'login_portal' %}" method="POST" id="main_form">
-            {% csrf_token %}
-
-            <input type="hidden" name="lat" id="lat_input">
-            <input type="hidden" name="lng" id="lng_input">
-
-            <div class="input-group">
-                <label>Select Lecturer</label>
-                <select id="lecturer_select" name="lecturer_id" required>
-                    <option value="" disabled selected>Choose Lecturer...</option>
-                    {% for l in lecturers %}
-                        <option value="{{ l.id }}">{{ l }}</option>
-                    {% endfor %}
-                </select>
+            <div class="details-box">
+                <div class="details-row">
+                    <span class="label">Student Name:</span>
+                    <span class="value">{{ student_name }}</span>
+                </div>
+                <div class="details-row">
+                    <span class="label">Index Number:</span>
+                    <span class="value">{{ index_number }}</span>
+                </div>
+                <div class="details-row">
+                    <span class="label">Examination:</span>
+                    <span class="value">{{ course.code }} - {{ course.title }}</span>
+                </div>
             </div>
 
-            <div id="course_section" class="input-group" style="display:none;">
-                <label>Course Code</label>
-                <select id="course_select" name="course_id" required></select>
-            </div>
+            <form action="{% url 'start_quiz' %}" method="POST" id="launch-exam-form">
+                {% csrf_token %}
+                <input type="hidden" name="lat" id="launch_lat">
+                <input type="hidden" name="lng" id="launch_lng">
 
-            <div class="input-group">
-                <label>Index Number</label>
-                <input type="text" id="index_number_input" name="index_number" placeholder="Enter ID" required autocomplete="off">
-            </div>
+                <div id="launch_gps_feedback" class="gps-status">Verifying secure perimeter link...</div>
 
-            <div id="gps_feedback" class="gps-status">Acquiring satellite location fix...</div>
+                <button type="button" id="launch_btn" onclick="captureHardwareCoordinatesAndSubmit()" disabled>
+                    Waiting for Location Link...
+                </button>
+            </form>
+            <p class="warning-text">⚠️ Navigating away or changing tabs after launch triggers an instant freeze event.</p>
 
-            <button type="submit" id="start_btn" disabled>Waiting for GPS Fix...</button>
-        </form>
-    </div>
+            <script>
+                function captureHardwareCoordinatesAndSubmit() {
+                    $('#launch_gps_feedback').text('Pinpointing exam hall coordinates...').css('color', '#d97706');
+                    $('#launch_btn').prop('disabled', true).text('Launching sheet...');
 
-    <script>
-    let gpsAcquired = false;
-
-    function checkAndUnlockButton() {
-        const hasCourseSelected = $('#course_select').val() !== null && $('#course_select').val() !== "";
-
-        if (gpsAcquired && hasCourseSelected) {
-            $('#start_btn').prop('disabled', false).text('Verify & Enter Examination');
-        } else {
-            $('#start_btn').prop('disabled', true);
-            if (!gpsAcquired) {
-                $('#start_btn').text('Waiting for Verified Location...');
-            } else {
-                $('#start_btn').text('Select Course Code...');
-            }
-        }
-    }
-
-    // 1. AJAX logic to fetch courses dynamically
-    $('#lecturer_select').change(function() {
-        const lecturerId = $(this).val();
-        if (lecturerId) {
-            $.ajax({
-                url: "{% url 'get_courses' %}",
-                data: { 'lecturer_id': lecturerId },
-                success: function(data) {
-                    $('#course_select').empty();
-                    $('#course_select').append('<option value="" disabled selected>Select Course...</option>');
-                    data.forEach(course => {
-                        $('#course_select').append(`<option value="${course.id}">${course.code} - ${course.title}</option>`);
-                    });
-                    $('#course_section').show();
-                    checkAndUnlockButton();
-                }
-            });
-        }
-    });
-
-    // 2. Geolocation Core Engine
-    function acquireStrictLocation() {
-        gpsAcquired = false;
-        $('#gps_feedback').text('Acquiring secure exam hall coordinates...').css('color', '#d97706');
-        $('#start_btn').prop('disabled', true).text('Verifying Location...');
-
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    document.getElementById('lat_input').value = position.coords.latitude;
-                    document.getElementById('lng_input').value = position.coords.longitude;
-
-                    gpsAcquired = true;
-                    $('#gps_feedback').text('✓ Location Verified Natively').css('color', '#059669');
-                    checkAndUnlockButton();
-                },
-                function(error) {
-                    gpsAcquired = false;
-                    console.log("Security error caught: ", error.message);
-
-                    if (error.code === error.PERMISSION_DENIED) {
-                        $('#gps_feedback').html('✕ Location Access Denied. You must allow location tracking in your browser settings.').css('color', '#dc2626');
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            function(position) {
+                                document.getElementById('launch_lat').value = position.coords.latitude;
+                                document.getElementById('launch_lng').value = position.coords.longitude;
+                                document.getElementById('launch-exam-form').submit();
+                            },
+                            function(error) {
+                                alert("GPS Pipeline Error: Re-verify that your device location is active and permitted for this browser tab.");
+                                $('#launch_gps_feedback').text('✕ Core Telemetry Stream Failed').css('color', '#dc2626');
+                                $('#launch_btn').prop('disabled', false).text('Retry Launch Sequence');
+                            },
+                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                        );
                     } else {
-                        $('#gps_feedback').html('✕ Network Signal Weak. <span id="retry_geo" style="text-decoration: underline; cursor: pointer; font-weight: bold;">Tap here to retry connection</span>').css('color', '#dc2626');
+                        alert("Browser hardware reporting profile unsupported.");
                     }
-                    checkAndUnlockButton();
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 12000,
-                    maximumAge: 0
                 }
-            );
-        } else {
-            $('#gps_feedback').text('✕ Browser security rules unsupported. Use Chrome or Safari.').css('color', '#dc2626');
-            checkAndUnlockButton();
-        }
-    }
 
-    // === 3. 🛡️ INDEX NUMBER CONFIRMATION INTERCEPTOR ===
-    document.getElementById('main_form').addEventListener('submit', function(event) {
-        const rawIndex = document.getElementById('index_number_input').value.trim();
-        const upperIndex = rawIndex.toUpperCase();
-        const courseText = $("#course_select option:selected").text();
+                // Auto-trigger verification loop once the launch UI handles state configuration
+                $(document).ready(function() {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(function(position) {
+                            document.getElementById('launch_lat').value = position.coords.latitude;
+                            document.getElementById('launch_lng').value = position.coords.longitude;
+                            $('#launch_gps_feedback').text('✓ Location Synchronized Natively').css('color', '#059669');
+                            $('#launch_btn').prop('disabled', false).text('Launch Examination Sheet');
+                        }, function() {
+                            $('#launch_gps_feedback').text('✕ Immediate GPS check missed. Tap button below to re-fetch manually.').css('color', '#dc2626');
+                            $('#launch_btn').prop('disabled', false).text('Fetch Location & Launch');
+                        }, { enableHighAccuracy: true, timeout: 8000 });
+                    }
+                });
+            </script>
 
-        const userConfirmed = confirm(
-            `Please verify your identity before entering the exam room:\n\n` +
-            `• Index Number: ${upperIndex}\n` +
-            `• Examination: ${courseText}\n\n` +
-            `Is your Index Number 100% correct? If it does not match our records, access will be blocked.`
-        );
+        {% else %}
+            <h2>Student Login</h2>
+            <p class="subtitle">Enter your details to begin the examination</p>
 
-        if (!userConfirmed) {
-            event.preventDefault();
-        }
-    });
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="error-msg">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
 
-    $(document).ready(function() {
-        acquireStrictLocation();
+            {% if error %}
+                <div class="error-msg">{{ error }}</div>
+            {% endif %}
 
-        $(document).on('click', '#retry_geo', function() {
-            acquireStrictLocation();
-        });
-    });
+            <form action="{% url 'login_portal' %}" method="POST" id="main_form">
+                {% csrf_token %}
 
-    $('#course_select').change(checkAndUnlockButton);
-</script>
-{% if is_authenticated %}
-    <div class="verification-success-box">
-        <h2>✓ Authorization Verified</h2>
-        <p>Welcome, <strong>{{ student_name }}</strong> ({{ index_number }})</p>
-        <p>You are logged into: <strong>{{ course.code }} - {{ course.title }}</strong></p>
+                <input type="hidden" name="lat" id="lat_input">
+                <input type="hidden" name="lng" id="lng_input">
 
-        <form action="{% url 'start_quiz' %}" method="POST" id="launch-exam-form">
-            {% csrf_token %}
-            <input type="hidden" name="lat" id="gps-lat" value="{{ request.POST.lat }}">
-            <input type="hidden" name="lng" id="gps-lng" value="{{ request.POST.lng }}">
+                <div class="input-group">
+                    <label>Select Lecturer</label>
+                    <select id="lecturer_select" name="lecturer_id" required>
+                        <option value="" disabled selected>Choose Lecturer...</option>
+                        {% for l in lecturers %}
+                            <option value="{{ l.id }}">{{ l }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <button type="submit" class="btn-start" style="background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%;">
-                Launch Examination Sheet
-            </button>
-        </form>
+                <div id="course_section" class="input-group" style="display:none;">
+                    <label>Course Code</label>
+                    <select id="course_select" name="course_id" required></select>
+                </div>
+
+                <div class="input-group">
+                    <label>Index Number</label>
+                    <input type="text" id="index_number_input" name="index_number" placeholder="Enter ID" required autocomplete="off">
+                </div>
+
+                <div id="gps_feedback" class="gps-status">Acquiring satellite location fix...</div>
+
+                <button type="submit" id="start_btn" disabled>Waiting for GPS Fix...</button>
+            </form>
+
+            <script>
+                let gpsAcquired = false;
+
+                function checkAndUnlockButton() {
+                    const hasCourseSelected = $('#course_select').val() !== null && $('#course_select').val() !== "";
+
+                    if (gpsAcquired && hasCourseSelected) {
+                        $('#start_btn').prop('disabled', false).text('Verify & Enter Examination');
+                    } else {
+                        $('#start_btn').prop('disabled', true);
+                        if (!gpsAcquired) {
+                            $('#start_btn').text('Waiting for Verified Location...');
+                        } else {
+                            $('#start_btn').text('Select Course Code...');
+                        }
+                    }
+                }
+
+                $('#lecturer_select').change(function() {
+                    const lecturerId = $(this).val();
+                    if (lecturerId) {
+                        $.ajax({
+                            url: "{% url 'get_courses' %}",
+                            data: { 'lecturer_id': lecturerId },
+                            success: function(data) {
+                                $('#course_select').empty();
+                                $('#course_select').append('<option value="" disabled selected>Select Course...</option>');
+                                data.forEach(course => {
+                                    $('#course_select').append(`<option value="${course.id}">${course.code} - ${course.title}</option>`);
+                                });
+                                $('#course_section').show();
+                                checkAndUnlockButton();
+                            }
+                        });
+                    }
+                });
+
+                function acquireStrictLocation() {
+                    gpsAcquired = false;
+                    $('#gps_feedback').text('Acquiring secure exam hall coordinates...').css('color', '#d97706');
+                    $('#start_btn').prop('disabled', true).text('Verifying Location...');
+
+                    if ("geolocation" in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                            function(position) {
+                                document.getElementById('lat_input').value = position.coords.latitude;
+                                document.getElementById('lng_input').value = position.coords.longitude;
+
+                                gpsAcquired = true;
+                                $('#gps_feedback').text('✓ Location Verified Natively').css('color', '#059669');
+                                checkAndUnlockButton();
+                            },
+                            function(error) {
+                                gpsAcquired = false;
+                                if (error.code === error.PERMISSION_DENIED) {
+                                    $('#gps_feedback').html('✕ Location Access Denied. You must allow location tracking in your browser settings.').css('color', '#dc2626');
+                                } else {
+                                    $('#gps_feedback').html('✕ Network Signal Weak. <span id="retry_geo" style="text-decoration: underline; cursor: pointer; font-weight: bold;">Tap here to retry connection</span>').css('color', '#dc2626');
+                                }
+                                checkAndUnlockButton();
+                            },
+                            { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+                        );
+                    } else {
+                        $('#gps_feedback').text('✕ Browser security rules unsupported. Use Chrome or Safari.').css('color', '#dc2626');
+                        checkAndUnlockButton();
+                    }
+                }
+
+                document.getElementById('main_form').addEventListener('submit', function(event) {
+                    const rawIndex = document.getElementById('index_number_input').value.trim();
+                    const upperIndex = rawIndex.toUpperCase();
+                    const courseText = $("#course_select option:selected").text();
+
+                    const userConfirmed = confirm(
+                        `Please verify your identity before entering the exam room:\n\n` +
+                        `• Index Number: ${upperIndex}\n` +
+                        `• Examination: ${courseText}\n\n` +
+                        `Is your Index Number 100% correct? If it does not match our records, access will be blocked.`
+                    );
+
+                    if (!userConfirmed) {
+                        event.preventDefault();
+                    }
+                });
+
+                $(document).ready(function() {
+                    acquireStrictLocation();
+                    $(document).on('click', '#retry_geo', function() {
+                        acquireStrictLocation();
+                    });
+                });
+
+                $('#course_select').change(checkAndUnlockButton);
+            </script>
+        {% endif %}
+
     </div>
-{% else %}
-    {% endif %}
+
 </body>
 </html>
