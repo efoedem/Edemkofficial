@@ -55,8 +55,9 @@ urlpatterns = [
     # 3. MAIN DJANGO ADMIN SCRIPT ENGINE
     path('admin/', admin.site.urls),
 
-    # 4. STUDENT EXAMINATION PLATFORM ENDPOINTS
-    path('', views.login_page, name='login'),
+    # 4. STUDENT EXAMINATION PLATFORM ENDPOINTS (FIXED ATTRIBUTE ERRORS)
+    path('', views.login_portal, name='login_portal'),
+    path('login/', views.login_portal, name='login'),
     path('api/get-courses/', views.get_courses, name='get_courses'),
     path('start-quiz/', views.start_quiz, name='start_quiz'),
     path('submit-quiz/', views.submit_quiz, name='submit_quiz'),

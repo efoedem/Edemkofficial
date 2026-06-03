@@ -101,3 +101,16 @@ class StudentSubmission(models.Model):
 
     def __str__(self):
         return f"{self.student_name} - {self.course.code}"
+
+
+# ==========================================
+# 5. ENFORCED ACCESS CONTROL MODEL (FIXED INDENTATION)
+# ==========================================
+class AllowedStudent(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='allowed_students')
+    index_number = models.CharField(max_length=20, unique=True)
+    full_name = models.CharField(max_length=100)
+    has_taken_exam = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.index_number} - {self.full_name} ({self.course.code})"

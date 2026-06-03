@@ -6,7 +6,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from geopy.distance import geodesic
-from .models import Lecturer, Course, Question, StudentSubmission
+from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 from django.utils import timezone
 
 # Binary document file parsers
@@ -15,7 +15,44 @@ from docx import Document
 from pypdf import PdfReader
 
 
-def login_page(request):
+def login_portal(request):
+    """
+    Renders the unified login gatekeeper portal and verifies student authorization
+    against the database records before establishing a user context.
+    """
+    if request.method == "POST":
+        input_index = request.POST.get('index_number', '').strip().upper()
+        course_id = request.POST.get('course_id')
+
+        # 1. Query database to see if this student is explicitly authorized for this exam
+        student_check = AllowedStudent.objects.filter(
+            index_number=input_index,
+            course_id=course_id
+        ).first()
+
+        # 2. Strict Verification Gate
+        if not student_check:
+            messages.error(request, "❌ Access Denied: Your index number is not registered for this examination.")
+            return redirect('login_portal')
+
+        # 3. Prevent duplicate exam entry breaches using the authorization model
+        if student_check.has_taken_exam:
+            messages.error(request, "🚫 Security Alert: You have already submitted this examination.")
+            return redirect('login_portal')
+
+        # 4. Success: Secure identity metrics inside session context and push to landing validation step
+        request.session['student_name'] = student_check.full_name
+        request.session['index_number'] = student_check.index_number
+        request.session['authorized_course_id'] = course_id
+
+        # Pass parameters safely to the start_quiz engine route
+        return render(request, 'quiz/start_landing.html', {
+            'course': student_check.course,
+            'student_name': student_check.full_name,
+            'index_number': student_check.index_number
+        })
+
+    # GET request: Render the streamlined portal selection template
     lecturers = Lecturer.objects.all()
     return render(request, 'quiz/login.html', {'lecturers': lecturers})
 
@@ -27,53 +64,45 @@ def get_courses(request):
 
 
 def start_quiz(request):
+    """
+    Validates physical perimeter parameters and active time brackets before generating the exam sheet.
+    """
+    # Safeguard route against raw URL tracking hits if session context is missing
+    student_name = request.session.get('student_name')
+    index_number = request.session.get('index_number')
+    course_id = request.session.get('authorized_course_id')
+
+    if not student_name or not index_number or not course_id:
+        messages.error(request, "Authentication expired or missing context. Please log in again.")
+        return redirect('login_portal')
+
     if request.method == "POST":
-        course_id = request.POST.get('course_id')
-        full_name = request.POST.get('full_name', '').strip()
-
-        # Standardize the incoming index number to uppercase format
-        index_number = request.POST.get('index_number', '').strip().upper()
-
         user_lat = request.POST.get('lat')
         user_lng = request.POST.get('lng')
-
-        # Basic identity validation gatekeeper
-        if not course_id or not index_number or not full_name:
-            return render(request, 'quiz/login.html', {
-                'lecturers': Lecturer.objects.all(),
-                'error': "ACCESS DENIED: All verification fields (Full Name, Index Number, and Course) must be filled."
-            })
 
         course = get_object_or_404(Course, id=course_id)
 
         # === 1. 🛡️ DUPLICATE ENTRANCE PERMISSION CONTROLLER ===
-        # Blocks students from starting the exact same examination session twice
         already_submitted = StudentSubmission.objects.filter(
             index_number=index_number,
             course=course
         ).exists()
 
         if already_submitted:
-            return render(request, 'quiz/login.html', {
-                'lecturers': Lecturer.objects.all(),
-                'error': f"SECURITY LOCKOUT: Index Number {index_number} has already started or completed this examination session."
-            })
+            messages.error(request, f"SECURITY LOCKOUT: Index Number {index_number} has an existing paper log.")
+            return redirect('login_portal')
 
         # === 2. SECURE DATETIME GATEKEEPER ===
         current_time = timezone.now()
 
         if current_time < course.start_time:
             expected_start = course.start_time.strftime("%I:%M %p (%d %b)")
-            return render(request, 'quiz/login.html', {
-                'lecturers': Lecturer.objects.all(),
-                'error': f"EXAMINATION NOT YET ACTIVE: This session is scheduled to begin at {expected_start}."
-            })
+            messages.error(request, f"EXAMINATION NOT YET ACTIVE: Scheduled to begin at {expected_start}.")
+            return redirect('login_portal')
 
         if current_time > course.end_time:
-            return render(request, 'quiz/login.html', {
-                'lecturers': Lecturer.objects.all(),
-                'error': "ACCESS DENIED: The examination entry portal window closed for this course session."
-            })
+            messages.error(request, "ACCESS DENIED: The examination entry window has closed.")
+            return redirect('login_portal')
 
         # === 3. GEOLOCATION PERIMETER VERIFICATION ===
         if user_lat and user_lng:
@@ -83,30 +112,27 @@ def start_quiz(request):
                 distance = geodesic(student_coords, hall_coords).meters
 
                 if distance > course.radius_meters:
-                    return render(request, 'quiz/login.html', {
-                        'lecturers': Lecturer.objects.all(),
-                        'error': f"ACCESS DENIED: You are {round(distance)}m away from the {course.code} exam hall."
-                    })
+                    messages.error(request,
+                                   f"ACCESS DENIED: You are {round(distance)}m away from the authorized perimeter zone.")
+                    return redirect('login_portal')
             except ValueError:
-                return render(request, 'quiz/login.html', {
-                    'lecturers': Lecturer.objects.all(),
-                    'error': "Invalid location values received."
-                })
+                messages.error(request, "Invalid hardware location coordinate stream parsing exception.")
+                return redirect('login_portal')
         else:
-            return render(request, 'quiz/login.html', {
-                'lecturers': Lecturer.objects.all(),
-                'error': "Location required. Enable GPS in browser settings."
-            })
+            messages.error(request, "Location tracking verification mandatory. Please enable GPS access.")
+            return redirect('login_portal')
 
+        # Everything matches securely: Deliver exam blueprint container layout
         context = {
             'course': course,
-            'questions': Question.objects.filter(course_id=course_id),
-            'student_name': full_name,
+            'questions': Question.objects.filter(course=course),
+            'student_name': student_name,
             'index_number': index_number,
             'duration_ms': course.duration_minutes * 60 * 1000
         }
         return render(request, 'quiz/exam.html', context)
-    return redirect('login')
+
+    return redirect('login_portal')
 
 
 def submit_quiz(request):
@@ -137,6 +163,7 @@ def submit_quiz(request):
         if security_breach == "true":
             display_name += " [⚠️ TERMINATED FOR TAB SWITCHING]"
 
+        # Save student submission logs securely
         StudentSubmission.objects.create(
             student_name=display_name,
             index_number=index_number,
@@ -145,12 +172,18 @@ def submit_quiz(request):
             score=float(correct_count)
         )
 
+        # Toggle structural lookup record flag to lock student out of subsequent portal attempts
+        AllowedStudent.objects.filter(index_number=index_number, course=course_obj).update(has_taken_exam=True)
+
+        # Clean out temporary workspace registration details from active device sessions
+        request.session.flush()
+
         return render(request, 'quiz/submitted.html', {
             'student_name': full_name,
             'score': int(correct_count),
             'show_score': False if security_breach == "true" else course_obj.show_scores
         })
-    return redirect('login')
+    return redirect('login_portal')
 
 
 # ==========================================================
@@ -160,7 +193,7 @@ def submit_quiz(request):
 def import_questions_page(request):
     """Renders the HTML upload interface page for lecturers."""
     if not request.user.is_staff:
-        return redirect('login')
+        return redirect('login_portal')
 
     context = {
         'courses': Course.objects.all()
@@ -171,7 +204,7 @@ def import_questions_page(request):
 def import_questions_all_formats(request):
     """Processes document streams, routing parsing logic automatically based on extensions."""
     if request.method != "POST" or not request.FILES.get('uploaded_document'):
-        return redirect('login')
+        return redirect('login_portal')
 
     course_id = request.POST.get('course_id')
     course_obj = get_object_or_404(Course, id=course_id)
@@ -179,7 +212,6 @@ def import_questions_all_formats(request):
 
     ext = os.path.splitext(uploaded_file.name)[1].lower()
 
-    # Dictionary helper maps document strings smoothly to database choice keys
     QTYPE_MAP = {
         'MCQ': 'MCQ', 'MULTIPLE CHOICE': 'MCQ', 'MULTIPLE_CHOICE': 'MCQ',
         'FITB': 'FITB', 'FILL IN THE BLANK': 'FITB', 'FILL_IN_THE_BLANK': 'FITB',
@@ -292,9 +324,8 @@ def import_questions_all_formats(request):
 # ==========================================================
 
 def download_excel_template(request):
-    """Generates a sample .xlsx template file with normalized headers."""
     if not request.user.is_staff:
-        return redirect('login')
+        return redirect('login_portal')
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -305,12 +336,7 @@ def download_excel_template(request):
 
     sample_row = [
         "Example Question: What language is Django written in?",
-        "Multiple Choice",
-        "Java",
-        "Python",
-        "C++",
-        "PHP",
-        "B"
+        "Multiple Choice", "Java", "Python", "C++", "PHP", "B"
     ]
     ws.append(sample_row)
 
@@ -324,9 +350,8 @@ def download_excel_template(request):
 
 
 def download_word_template(request):
-    """Generates a structured paragraph grid .docx blueprint file container."""
     if not request.user.is_staff:
-        return redirect('login')
+        return redirect('login_portal')
 
     doc = Document()
     doc.add_heading('Question Import Blueprint Grid', level=1)
