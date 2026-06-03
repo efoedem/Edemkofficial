@@ -59,7 +59,7 @@
             text-align: left;
             line-height: 1.4;
         }
-        .gps-status { font-size: 0.8rem; color: #d97706; font-weight: 600; margin-top: 0.75rem; text-align: left; line-height: 1.4; }
+        .gps-status { font-size: 0.8rem; color: #059669; font-weight: 600; margin-top: 0.75rem; text-align: left; line-height: 1.4; }
 
         .verification-success-badge {
             background-color: #dcfce7;
@@ -96,9 +96,10 @@
     <div class="login-card">
 
         {% if is_authenticated %}
+            <!-- STATE A: IDENTITY VERIFIED -> START IMMEDIATELY -->
             <span class="verification-success-badge">✓ Authorization Verified</span>
             <h2>Ready to Begin?</h2>
-            <p class="subtitle" style="margin-bottom: 1rem;">Confirm details to process spatial coordinate alignment</p>
+            <p class="subtitle" style="margin-bottom: 1rem;">Confirm your details to initialize the exam paper</p>
 
             <div class="details-box">
                 <div class="details-row">
@@ -117,43 +118,19 @@
 
             <form action="{% url 'start_quiz' %}" method="POST" id="launch-exam-form">
                 {% csrf_token %}
-                <input type="hidden" name="lat" id="launch_lat">
-                <input type="hidden" name="lng" id="launch_lng">
+                <input type="hidden" name="lat" value="0.0">
+                <input type="hidden" name="lng" value="0.0">
 
-                <div id="launch_gps_feedback" class="gps-status">Verifying secure perimeter link...</div>
+                <div id="launch_gps_feedback" class="gps-status">✓ Portal Session Synchronized Natively</div>
 
-                <button type="button" id="launch_btn" onclick="executeFinalLaunch()" disabled>
-                    Waiting for Location Link...
+                <button type="submit" id="launch_btn">
+                    Launch Examination Sheet
                 </button>
             </form>
             <p class="warning-text">⚠️ Navigating away or changing tabs after launch triggers an instant freeze event.</p>
 
-            <script>
-                function executeFinalLaunch() {
-                    if (!document.getElementById('launch_lat').value) {
-                        alert("Cannot initialize sheet: Waiting for verified satellite telemetry.");
-                        return;
-                    }
-                    $('#launch_gps_feedback').text('Pinpointing exam hall coordinates...').css('color', '#d97706');
-                    $('#launch_btn').prop('disabled', true).text('Launching sheet...');
-                    document.getElementById('launch-exam-form').submit();
-                }
-
-                $(document).ready(function() {
-                    if (navigator.geolocation) {
-                        navigator.geolocation.watchPosition(function(position) {
-                            document.getElementById('launch_lat').value = position.coords.latitude;
-                            document.getElementById('launch_lng').value = position.coords.longitude;
-                            $('#launch_gps_feedback').text('✓ Location Synchronized Natively').css('color', '#059669');
-                            $('#launch_btn').prop('disabled', false).text('Launch Examination Sheet');
-                        }, function() {
-                            $('#launch_gps_feedback').text('✕ GPS Signal Blocked. Ensure phone location services are active.').css('color', '#dc2626');
-                        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-                    }
-                });
-            </script>
-
         {% else %}
+            <!-- STATE B: STANDARD LOGIN PANEL -->
             <h2>Student Login</h2>
             <p class="subtitle">Enter your details to begin the examination</p>
 
@@ -166,8 +143,8 @@
             <form action="{% url 'login_portal' %}" method="POST" id="main_form">
                 {% csrf_token %}
 
-                <input type="hidden" name="lat" id="lat_input">
-                <input type="hidden" name="lng" id="lng_input">
+                <input type="hidden" name="lat" value="0.0">
+                <input type="hidden" name="lng" value="0.0">
 
                 <div class="input-group">
                     <label>Select Lecturer</label>
@@ -189,27 +166,17 @@
                     <input type="text" id="index_number_input" name="index_number" placeholder="Enter ID" required autocomplete="off">
                 </div>
 
-                <div id="gps_feedback" class="gps-status">Acquiring satellite location fix...</div>
-
-                <button type="submit" id="start_btn" disabled>Waiting for GPS Fix...</button>
+                <button type="submit" id="start_btn" disabled>Select Course Code...</button>
             </form>
 
             <script>
-                let activeWatchId = null;
-
                 function checkAndUnlockButton() {
                     const hasCourseSelected = $('#course_select').val() !== null && $('#course_select').val() !== "";
-                    const hasCoordinates = $('#lat_input').val() !== "" && $('#lat_input').val() !== undefined;
 
-                    if (hasCoordinates && hasCourseSelected) {
+                    if (hasCourseSelected) {
                         $('#start_btn').prop('disabled', false).text('Verify & Enter Examination');
                     } else {
-                        $('#start_btn').prop('disabled', true);
-                        if (!hasCoordinates) {
-                            $('#start_btn').text('Waiting for Verified Location...');
-                        } else {
-                            $('#start_btn').text('Select Course Code...');
-                        }
+                        $('#start_btn').prop('disabled', true).text('Select Course Code...');
                     }
                 }
 
@@ -230,56 +197,6 @@
                             }
                         });
                     }
-                });
-
-                function initializeHardwareTracking() {
-                    if ("geolocation" in navigator) {
-                        $('#gps_feedback').text('Connecting to native GPS antenna array...').css('color', '#d97706');
-
-                        if (activeWatchId) navigator.geolocation.clearWatch(activeWatchId);
-
-                        // Continuous active loop keeps mobile hardware awake
-                        activeWatchId = navigator.geolocation.watchPosition(
-                            function(position) {
-                                document.getElementById('lat_input').value = position.coords.latitude;
-                                document.getElementById('lng_input').value = position.coords.longitude;
-                                $('#gps_feedback').text('✓ Location Verified Natively').css('color', '#059669');
-                                checkAndUnlockButton();
-                            },
-                            function(error) {
-                                if (error.code === error.PERMISSION_DENIED) {
-                                    $('#gps_feedback').text('✕ Access Blocked. Enable location permissions in browser settings.').css('color', '#dc2626');
-                                } else {
-                                    $('#gps_feedback').text('✕ GPS Signal Blocked. Ensure phone GPS is on and step near a window.').css('color', '#dc2626');
-                                }
-                                checkAndUnlockButton();
-                            },
-                            { enableHighAccuracy: true, maximumAge: 0 }
-                        );
-                    } else {
-                        $('#gps_feedback').text('✕ Browser hardware connection unsupported.').css('color', '#dc2626');
-                    }
-                }
-
-                document.getElementById('main_form').addEventListener('submit', function(event) {
-                    const rawIndex = document.getElementById('index_number_input').value.trim();
-                    const upperIndex = rawIndex.toUpperCase();
-                    const courseText = $("#course_select option:selected").text();
-
-                    const userConfirmed = confirm(
-                        `Please verify your identity before entering the exam room:\n\n` +
-                        `• Index Number: ${upperIndex}\n` +
-                        `• Examination: ${courseText}\n\n` +
-                        `Is your Index Number 100% correct? If it does not match our records, access will be blocked.`
-                    );
-
-                    if (!userConfirmed) {
-                        event.preventDefault();
-                    }
-                });
-
-                $(document).ready(function() {
-                    initializeHardwareTracking();
                 });
 
                 $('#course_select').change(checkAndUnlockButton);

@@ -81,8 +81,10 @@ def get_courses(request):
 
 def start_quiz(request):
     """
-    Validates physical perimeter parameters and active time brackets before generating the exam sheet.
+    Validates identity and active time brackets before generating the exam sheet.
+    Perimeter/Geolocation verification bypassed.
     """
+    # Safeguard route against raw URL tracking hits if session context is missing
     student_name = request.session.get('student_name')
     index_number = request.session.get('index_number')
     course_id = request.session.get('authorized_course_id')
@@ -92,12 +94,9 @@ def start_quiz(request):
         return redirect('login_portal')
 
     if request.method == "POST":
-        user_lat = request.POST.get('lat')
-        user_lng = request.POST.get('lng')
-
         course = get_object_or_404(Course, id=course_id)
 
-        # 1. Duplicate Entrance Permission Controller
+        # === 1. 🛡️ DUPLICATE ENTRANCE PERMISSION CONTROLLER ===
         already_submitted = StudentSubmission.objects.filter(
             index_number=index_number,
             course=course
@@ -107,7 +106,7 @@ def start_quiz(request):
             messages.error(request, f"SECURITY LOCKOUT: Index Number {index_number} has an existing paper log.")
             return redirect('login_portal')
 
-        # 2. Secure Datetime Gatekeeper
+        # === 2. SECURE DATETIME GATEKEEPER ===
         current_time = timezone.now()
 
         if current_time < course.start_time:
@@ -119,26 +118,8 @@ def start_quiz(request):
             messages.error(request, "ACCESS DENIED: The examination entry window has closed.")
             return redirect('login_portal')
 
-        # 3. Geolocation Perimeter Verification
-        if user_lat and user_lng:
-            try:
-                student_coords = (float(user_lat), float(user_lng))
-                hall_coords = (course.latitude, course.longitude)
-
-                # Geodesic calculation mapping matching your original high-precision framework
-                distance = geodesic(student_coords, hall_coords).meters
-
-                if distance > course.radius_meters:
-                    messages.error(request,
-                                   f"ACCESS DENIED: Physical perimeter verification failed. You are {round(distance)}m away from the authorized zone.")
-                    return redirect('login_portal')
-            except ValueError:
-                messages.error(request, "Invalid hardware location coordinate stream parsing exception.")
-                return redirect('login_portal')
-        else:
-            messages.error(request, "Location tracking verification mandatory. Please enable GPS hardware access.")
-            return redirect('login_portal')
-
+        # === 3. GEOLOCATION PERIMETER BYPASS ===
+        # Geolocation check removed. Directly deliver the exam blueprint layout.
         context = {
             'course': course,
             'questions': Question.objects.filter(course=course),
