@@ -104,13 +104,18 @@ class StudentSubmission(models.Model):
 
 
 # ==========================================
-# 5. ENFORCED ACCESS CONTROL MODEL (FIXED INDENTATION)
+# 5. ENFORCED ACCESS CONTROL MODEL (FIXED ALIGNMENT)
 # ==========================================
 class AllowedStudent(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='allowed_students')
-    index_number = models.CharField(max_length=20, unique=True)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    index_number = models.CharField(max_length=20)
     full_name = models.CharField(max_length=100)
     has_taken_exam = models.BooleanField(default=False)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['index_number', 'course'], name='unique_student_per_course')
+        ]
+
     def __str__(self):
-        return f"{self.index_number} - {self.full_name} ({self.course.code})"
+        return f"{self.index_number} - {self.full_name}"
