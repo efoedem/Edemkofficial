@@ -493,88 +493,75 @@ navigator.mediaDevices.getUserMedia({ video: true })
 </script>
 
 <script>
-// ====== MOBILE-SAFE ANTI-CHEAT MONITORING ENGINE ======
-let isExamLoadedFully = false;
+    // ====== UNIFIED MOBILE-SAFE ANTI-CHEAT ENGINE ======
+    let isExamLoadedFully = false;
 
-// 1. Give the phone browser 2.5 seconds to settle its viewport layout completely upon loading
-setTimeout(() => {
-    isExamLoadedFully = true;
-}, 2500);
+    // Set flag when page is fully interactive
+    window.addEventListener('load', () => { setTimeout(() => { isExamLoadedFully = true; }, 3000); });
 
-// Helper function to check if the student is using a mobile browser layout
-function isMobileDevice() {
-    return window.matchMedia("(max-width: 768px)").matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
-}
-
-// 2. Tab Visibility Focus Monitor (Bypassed during initial load)
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden && isExamLoadedFully) {
-        triggerTerminalSubmission("tab_switch");
+    function isMobileDevice() {
+        return window.matchMedia("(max-width: 768px)").matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
     }
-});
 
-window.addEventListener('blur', function() {
-    if (isExamLoadedFully) {
-        triggerTerminalSubmission("tab_switch");
+    // 1. Unified Termination Logic (Handles CSRF correctly)
+    function triggerTerminalSubmission(breachType) {
+        if (isAutoSubmitting) return;
+        isAutoSubmitting = true;
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+        const payload = {
+            full_name: "{{ student_name|escapejs }}",
+            index_number: "{{ index_number|escapejs }}",
+            course_id: "{{ course.id }}",
+            security_breach: breachType,
+            answers: {}
+        };
+
+        // Use fetch with CSRF header
+        fetch("{% url 'submit_quiz' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: JSON.stringify(payload)
+        })
+        .finally(() => {
+            window.location.href = "{% url 'login_portal' %}";
+        });
     }
-});
 
-// 3. Screen Resize / Split-Screen Window Monitor (Refined for Mobile)
-let resizeTimer;
-window.addEventListener('resize', function() {
-    // Clear the timer on every resize event
-    clearTimeout(resizeTimer);
+    // 2. Geometry Monitor
+    window.addEventListener('resize', function() {
+        if (!isExamLoadedFully) return;
 
-    // Ignore all resizes for the first 5 seconds to let the mobile browser finish UI rendering
-    if (!isExamLoadedFully) return;
+        let isSplit = isMobileDevice()
+            ? (window.innerWidth < (screen.width * 0.4))
+            : (window.outerWidth < (screen.width * 0.8));
 
-    // Set a short delay to ensure the resize is a intentional user action (like dragging a window)
-    // rather than the browser showing/hiding the URL bar or keyboard
-    resizeTimer = setTimeout(() => {
-        if (isMobileDevice()) {
-            // For mobile, only trigger if the width change is extreme (less than 50% of screen width)
-            if (window.innerWidth < (screen.width * 0.5)) {
-                triggerTerminalSubmission("split_screen");
-            }
-        } else {
-            // Desktop rules remain strict
-            if (window.outerWidth < (screen.width * 0.9) || window.outerHeight < (screen.height * 0.9)) {
-                triggerTerminalSubmission("split_screen");
-            }
+        if (isSplit) {
+            document.getElementById('security_breach_flag').value = "split_screen";
+            triggerTerminalSubmission("split_screen");
         }
-    }, 2000);
-});
-
-function triggerTerminalSubmission(breachType) {
-    const payload = {
-        full_name: "{{ student_name|escapejs }}",
-        index_number: "{{ index_number|escapejs }}",
-        course_id: "{{ course.id }}",
-        security_breach: breachType,
-        answers: {}
-    };
-
-    fetch("{% url 'submit_quiz' %}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest"
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === "denied" || data.redirect_url) {
-            alert("❌ EXAM WORKSPACE FREEZE:\n\nSplit-screen layout or window reduction detected.");
-            window.location.href = "{% url 'login_portal' %}";
-        } else {
-            window.location.href = "{% url 'login_portal' %}";
-        }
-    })
-    .catch(err => {
-        window.location.href = "{% url 'login_portal' %}";
     });
-}
+
+    // 3. Focus/Tab Monitor
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden && isExamLoadedFully) {
+            document.getElementById('security_breach_flag').value = "tab_switch";
+            triggerTerminalSubmission("tab_switch");
+        }
+    });
+
+    // 4. Block Keyboard/ContextMenu (Kept from your original)
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'F12' || (e.ctrlKey && ['I','J','C','U','P','S'].includes(e.key.toUpperCase()))) {
+            e.preventDefault();
+            return false;
+        }
+    });
 </script>
 </body>
 </html>
