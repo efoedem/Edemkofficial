@@ -21,10 +21,26 @@ class Lecturer(models.Model):
 # 2. COURSE MODEL
 # ==========================================
 class Course(models.Model):
+    ASSESSMENT_TYPES = [
+        ('QUIZ', 'Quiz / Continuous Assessment'),
+        ('ASSIGNMENT', 'Take-Home Assignment'),
+        ('MIDSEM', 'Mid-Semester Examination'),
+        ('PROJECT', 'Project Submission'),
+        ('FINAL', 'End of Semester Exam'),
+    ]
+
     lecturer = models.ForeignKey(Lecturer, on_delete=models.CASCADE)
-    title = models.CharField(max_length=200)
-    code = models.CharField(max_length=200)
-    exam_name = models.CharField(max_length=200)
+    title = models.CharField(max_length=200)  # e.g., "SIGNALS AND SYSTEMS"
+    code = models.CharField(max_length=200)  # e.g., "ELNG 222"
+
+    # 🆕 NEW: Assessment Category Selector
+    assessment_type = models.CharField(
+        max_length=20,
+        choices=ASSESSMENT_TYPES,
+        default='QUIZ'  # Protects existing database entries during migration
+    )
+
+    exam_name = models.CharField(max_length=200, help_text="e.g., Quiz 1, Midsem, Project Phase 1")
     duration_minutes = models.IntegerField(default=30)
 
     # Geofencing Parameters
@@ -39,9 +55,8 @@ class Course(models.Model):
     end_time = models.DateTimeField(default=timezone.now, help_text="When the entry portal closes completely.")
 
     def __str__(self):
-        return f"{self.code} - {self.title}"
-
-
+        # Displays beautifully in Django Admin: "ELNG 222 - Midsem (Mid-Semester Examination)"
+        return f"{self.code} - {self.exam_name} ({self.get_assessment_type_display()})"
 # ==========================================
 # 3. QUESTION MODEL (WITH BUILT-IN IMPORT NORMALIZER)
 # ==========================================
