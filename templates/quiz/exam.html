@@ -37,13 +37,28 @@
                     <input type="hidden" name="course_id" value="{{ course.id }}">
                     <input type="hidden" id="security_breach_flag" name="security_breach" value="false">
 
-                    {% for q in questions %}
-                        <div class="question-block">
-                            <p><strong>{{ forloop.counter }}. {{ q.text }}</strong></p>
-                            {% if q.q_type == 'MCQ' %}<ul style="list-style:none;"><li><label><input type="radio" name="q{{q.id}}" value="A"> A. {{ q.option_a }}</label></li><li><label><input type="radio" name="q{{q.id}}" value="B"> B. {{ q.option_b }}</label></li></ul>
-                            {% else %}<input type="text" name="q{{q.id}}" style="width: 100%; padding: 10px;">{% endif %}
-                        </div>
-                    {% endfor %}
+                   {% for item in questions_data %}
+    <div class="question-block">
+        <p><strong>{{ forloop.counter }}. {{ item.q.text }}</strong></p>
+
+        {% if item.q.q_type == 'MCQ' %}
+            <ul class="options-list">
+                {% for opt in item.options %}
+                    <li>
+                        <label>
+                            <input type="radio" name="q{{item.q.id}}" value="{{ opt.val }}">
+                            <span>{{ opt.text }}</span>
+                        </label>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% elif item.q.q_type == 'FITB' %}
+            <input type="text" name="q{{item.q.id}}" placeholder="Type answer here">
+        {% else %}
+            <textarea name="q{{item.q.id}}" rows="4"></textarea>
+        {% endif %}
+    </div>
+{% endfor %}
                     <button type="submit" class="submit-btn">Submit Examination</button>
                 </form>
             </div>
