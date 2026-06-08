@@ -43,7 +43,7 @@
             flex: 1;
             height: 100%;
             overflow-y: auto;
-            padding: 30px 220px 30px 30px; /* Merged padding declarations to prevent duplication */
+            padding: 30px 220px 30px 30px;
             transition: padding-right 0.2s ease;
         }
 
@@ -125,32 +125,13 @@
             text-align: center;
         }
 
-        /* MASTER MEDIA QUERY RE-ALIGNMENT FOR TARGET MOBILE PANELS */
         @media (max-width: 768px) {
-            .exam-header {
-                padding: 10px 15px;
-            }
-            .exam-header h2 {
-                font-size: 1.05rem !important;
-            }
-
-            .scrollable-content {
-                padding: 15px; /* Clean single declaration override */
-            }
-
-            .container {
-                padding: 20px;
-                border-radius: 8px;
-            }
-
-            .question-block {
-                padding: 15px;
-            }
-
-            button.submit-btn {
-                width: 100%;
-            }
-
+            .exam-header { padding: 10px 15px; }
+            .exam-header h2 { font-size: 1.05rem !important; }
+            .scrollable-content { padding: 15px; }
+            .container { padding: 20px; border-radius: 8px; }
+            .question-block { padding: 15px; }
+            button.submit-btn { width: 100%; }
             #video {
                 width: 115px;
                 top: auto;
@@ -192,6 +173,7 @@
                     <input type="hidden" name="full_name" value="{{ student_name }}">
                     <input type="hidden" name="index_number" value="{{ index_number }}">
                     <input type="hidden" name="course_id" value="{{ course.id }}">
+
                     <input type="hidden" id="security_breach_flag" name="security_breach" value="false">
 
                     {% for q in questions %}
@@ -328,7 +310,7 @@
         if (confirm(message)) {
             clearExamStorage();
             isAutoSubmitting = true;
-            document.getElementById('quizForm').submit();
+            quizForm.submit();
         }
         return false;
     }
@@ -339,6 +321,7 @@
         .then(stream => { document.getElementById('video').srcObject = stream; })
         .catch(() => { alert("Proctoring Error: Active camera verification mandatory."); window.location.href="/"; });
 
+    // --- TAB-SWITCH DETECTOR MODULE ---
     let focusViolations = 0;
     document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
@@ -346,7 +329,7 @@
             if (focusViolations === 1) {
                 alert("🚨 CRITICAL SECURITY WARNING!\nYou have navigated away from the exam screen. Switching tabs or closing this window again will cause your examination to AUTO-SUBMIT immediately.");
             } else if (focusViolations >= 2) {
-                document.getElementById('security_breach_flag').value = "true";
+                document.getElementById('security_breach_flag').value = "tab_switch";
                 clearExamStorage();
                 isAutoSubmitting = true;
                 alert("🚫 EXAM TERMINATED!\nMultiple navigation breaches logged. Submitting paper now.");
@@ -355,16 +338,7 @@
         }
     });
 
-    document.addEventListener('keydown', function(e) {
-        if (e.key === "F12" || (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C"))) { e.preventDefault(); return false; }
-        if (e.ctrlKey && e.key === 'p') { e.preventDefault(); alert("Printing is restricted during examinations."); return false; }
-        if (e.ctrlKey && e.key === 's') { e.preventDefault(); return false; }
-    });
-
-    window.addEventListener('keyup', function(e) {
-        if (e.key === 'PrintScreen') { navigator.clipboard.writeText(''); alert("Screenshot capture disabled."); }
-    });
-
+    // --- GEOLOCATION BOUNDARY ENGINE ---
     function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
         const R = 6371e3;
         const phi1 = lat1 * Math.PI/180;
@@ -391,25 +365,25 @@
 
     window.addEventListener('popstate', function (event) {
         history.pushState(null, null, window.location.href);
-        document.getElementById('security_breach_flag').value = "true";
+        document.getElementById('security_breach_flag').value = "tab_switch";
         clearExamStorage();
         isAutoSubmitting = true;
-        alert("🚫 EXAM TERMINATED!\nUsing browser navigation navigation is forbidden. Submitting paper immediately.");
-        document.getElementById('quizForm').submit();
+        alert("🚫 EXAM TERMINATED!\nUsing browser navigation is forbidden. Submitting paper immediately.");
+        quizForm.submit();
     });
 
     window.addEventListener('pageshow', function (event) {
         if (event.persisted) {
-            document.getElementById('security_breach_flag').value = "true";
+            document.getElementById('security_breach_flag').value = "tab_switch";
             clearExamStorage();
             isAutoSubmitting = true;
-            document.getElementById('quizForm').submit();
+            quizForm.submit();
         }
     });
 </script>
+
 <script>
 (function() {
-    // 1. Set baseline expectations for an exam screen layout
     const targetMinWidth = Math.max(1024, screen.width * 0.80);
     let violationTriggered = false;
 
@@ -428,29 +402,34 @@
 
         if (isSplitWidth || isSuspiciousVerticalRatio) {
             violationTriggered = true;
-            terminateExamSession("Split-screen layout or window reduction detected. You must keep the browser maximized.");
+            terminateExamSession("split_screen");
         }
     }
 
-    function terminateExamSession(reason) {
-        violationTriggered = true;
-        alert("🚨 EXAM WORKSPACE FREEZE:\n\n" + reason + "\n\nYour active workspace has been frozen and your progress is being submitted.");
+    function terminateExamSession(violationType) {
+        // ✅ FIXED: Targets 'security_breach_flag' to match your HTML form input
+        const breachInput = document.getElementById('security_breach_flag');
+        if (breachInput) {
+            breachInput.value = violationType;
+        }
 
-        // Find your exam submission form and force click the submit button
-        const examForm = document.querySelector('form');
+        alert("🚨 EXAM WORKSPACE FREEZE EVENT:\n\nSplit-screen configuration detected. This incident has been logged against your Index Number.");
+
+        // ✅ FIXED: Targets 'quizForm' to align form elements perfectly
+        const examForm = document.getElementById('quizForm');
         if (examForm) {
+            clearExamStorage(); // Clear local storage data caches before posting
+            isAutoSubmitting = true;
             examForm.submit();
-        } else {
-            window.location.href = "/quiz/logout/?reason=split_screen";
         }
     }
 
-    // 2. Intercept copy-paste and right-clicks to prevent sharing text
-    document.addEventListener('contextmenu', e => e.preventDefault()); // Blocks right click
-    document.addEventListener('copy', e => e.preventDefault());         // Blocks copying text
-    document.addEventListener('paste', e => e.preventDefault());        // Blocks pasting text
+    // Intercept copy-paste and right-clicks to prevent sharing text
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('copy', e => e.preventDefault());
+    document.addEventListener('paste', e => e.preventDefault());
 
-    // 3. Block keyboard shortcut exploits (F12, Inspect Element)
+    // Block keyboard shortcut exploits (F12, Inspect Element, Save, Print)
     document.addEventListener('keydown', function(e) {
         if (
             e.key === 'F12' ||
@@ -459,15 +438,22 @@
         ) {
             e.preventDefault();
             alert("🔒 Developer console interfaces are restricted during evaluation.");
+            return false;
         }
+        if (e.ctrlKey && e.key === 'p') { e.preventDefault(); alert("Printing is restricted during examinations."); return false; }
+        if (e.ctrlKey && e.key === 's') { e.preventDefault(); return false; }
     });
 
-    // 4. Hook up layout listeners
+    window.addEventListener('keyup', function(e) {
+        if (e.key === 'PrintScreen') { navigator.clipboard.writeText(''); alert("Screenshot capture disabled."); }
+    });
+
+    // Hook up layout listeners
     window.addEventListener('resize', function() {
         setTimeout(assessDisplayGeometry, 150);
     });
 
-    // 5. Continual background telemetry sweeping
+    // Continual background telemetry sweeping
     setInterval(assessDisplayGeometry, 2000);
     assessDisplayGeometry();
 })();
