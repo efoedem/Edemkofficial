@@ -407,5 +407,70 @@
         }
     });
 </script>
+<script>
+(function() {
+    // 1. Set baseline expectations for an exam screen layout
+    const targetMinWidth = Math.max(1024, screen.width * 0.80);
+    let violationTriggered = false;
+
+    function assessDisplayGeometry() {
+        if (violationTriggered) return;
+
+        const currentWidth = window.innerWidth;
+        const currentHeight = window.innerHeight;
+        const aspect_ratio = currentWidth / currentHeight;
+
+        // Condition A: Browser has been snapped to a half-screen layout
+        const isSplitWidth = currentWidth < targetMinWidth;
+
+        // Condition B: Window format is too skinny/vertical for a landscape laptop screen
+        const isSuspiciousVerticalRatio = aspect_ratio < 1.1;
+
+        if (isSplitWidth || isSuspiciousVerticalRatio) {
+            violationTriggered = true;
+            terminateExamSession("Split-screen layout or window reduction detected. You must keep the browser maximized.");
+        }
+    }
+
+    function terminateExamSession(reason) {
+        violationTriggered = true;
+        alert("🚨 EXAM WORKSPACE FREEZE:\n\n" + reason + "\n\nYour active workspace has been frozen and your progress is being submitted.");
+
+        // Find your exam submission form and force click the submit button
+        const examForm = document.querySelector('form');
+        if (examForm) {
+            examForm.submit();
+        } else {
+            window.location.href = "/quiz/logout/?reason=split_screen";
+        }
+    }
+
+    // 2. Intercept copy-paste and right-clicks to prevent sharing text
+    document.addEventListener('contextmenu', e => e.preventDefault()); // Blocks right click
+    document.addEventListener('copy', e => e.preventDefault());         // Blocks copying text
+    document.addEventListener('paste', e => e.preventDefault());        // Blocks pasting text
+
+    // 3. Block keyboard shortcut exploits (F12, Inspect Element)
+    document.addEventListener('keydown', function(e) {
+        if (
+            e.key === 'F12' ||
+            (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) ||
+            (e.ctrlKey && e.key === 'U')
+        ) {
+            e.preventDefault();
+            alert("🔒 Developer console interfaces are restricted during evaluation.");
+        }
+    });
+
+    // 4. Hook up layout listeners
+    window.addEventListener('resize', function() {
+        setTimeout(assessDisplayGeometry, 150);
+    });
+
+    // 5. Continual background telemetry sweeping
+    setInterval(assessDisplayGeometry, 2000);
+    assessDisplayGeometry();
+})();
+</script>
 </body>
 </html>
