@@ -407,20 +407,36 @@
     }
 
     function terminateExamSession(violationType) {
-        // ✅ FIXED: Targets 'security_breach_flag' to match your HTML form input
+        // 1. Target the security flag input element
         const breachInput = document.getElementById('security_breach_flag');
         if (breachInput) {
             breachInput.value = violationType;
         }
 
+        // 2. Clear out local storage cache data
+        clearExamStorage();
+        isAutoSubmitting = true;
+
         alert("🚨 EXAM WORKSPACE FREEZE EVENT:\n\nSplit-screen configuration detected. This incident has been logged against your Index Number.");
 
-        // ✅ FIXED: Targets 'quizForm' to align form elements perfectly
+        // 3. 🚨 FIX: Force-inject a fresh header token directly into the form before sending
         const examForm = document.getElementById('quizForm');
         if (examForm) {
-            clearExamStorage(); // Clear local storage data caches before posting
-            isAutoSubmitting = true;
-            examForm.submit();
+            // Check if token exists, if not, find it from the DOM and make sure it's bundled
+            let csrfTokenInput = examForm.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (!csrfTokenInput) {
+                const tokenVal = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+                if (tokenVal) {
+                    csrfTokenInput = document.createElement('input');
+                    csrfTokenInput.type = 'hidden';
+                    csrfTokenInput.name = 'csrfmiddlewaretoken';
+                    csrfTokenInput.value = tokenVal;
+                    examForm.appendChild(csrfTokenInput);
+                }
+            }
+
+            // Bypass manual validations and submit directly to the exempt backend view
+            HTMLFormElement.prototype.submit.call(examForm);
         }
     }
 
