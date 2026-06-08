@@ -284,42 +284,45 @@
         localStorage.removeItem(timerStorageKey);
         localStorage.removeItem(answersStorageKey);
     }
+function handleManualSubmit(event) {
+    if (isAutoSubmitting) return true;
+    event.preventDefault(); // Temporarily intercept the submit event to perform item tracking validation
 
-    function handleManualSubmit(event) {
-        if (isAutoSubmitting) return true;
-        event.preventDefault();
+    const totalQuestions = document.querySelectorAll('.question-block').length;
+    let answeredCount = 0;
 
-        const totalQuestions = document.querySelectorAll('.question-block').length;
-        let answeredCount = 0;
+    const radioGroups = new Set();
+    document.querySelectorAll('input[type="radio"]').forEach(r => radioGroups.add(r.name));
+    radioGroups.forEach(name => {
+        if (document.querySelector('input[name="' + name + '"]:checked')) answeredCount++;
+    });
 
-        const radioGroups = new Set();
-        document.querySelectorAll('input[type="radio"]').forEach(r => radioGroups.add(r.name));
-        radioGroups.forEach(name => {
-            if (document.querySelector('input[name="' + name + '"]:checked')) answeredCount++;
-        });
+    document.querySelectorAll('input[type="text"], textarea').forEach(el => {
+        if (el.value.trim() !== "") answeredCount++;
+    });
 
-        document.querySelectorAll('input[type="text"], textarea').forEach(el => {
-            if (el.value.trim() !== "") answeredCount++;
-        });
-
-        let message = "Are you sure you want to finalize and submit your examination?";
-        if (answeredCount < totalQuestions) {
-            message = "⚠️ Warning: You have only answered " + answeredCount + " out of " + totalQuestions + " questions.\n\nAre you absolutely sure you want to submit your paper?";
-        }
-
-        if (confirm(message)) {
-            clearExamStorage();
-            isAutoSubmitting = true;
-            quizForm.submit();
-        }
-        return false;
+    let message = "Are you sure you want to finalize and submit your examination?";
+    if (answeredCount < totalQuestions) {
+        message = "⚠️ Warning: You have only answered " + answeredCount + " out of " + totalQuestions + " questions.\n\nAre you absolutely sure you want to submit your paper?";
     }
 
-    restoreSavedAnswers();
+    if (confirm(message)) {
+        clearExamStorage();
+        isAutoSubmitting = true;
 
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => { document.getElementById('video').srcObject = stream; })
-        .catch(() => { alert("Proctoring Error: Active camera verification mandatory."); window.location.href="/"; });
+        // ✅ NATIVE FORM PROTOTYPE SUBMIT OVERRIDE
+        // Forces a natural browser POST action directly to our exempt backend endpoint,
+        // safely bypassing serverless cookie dropped context issues.
+        HTMLFormElement.prototype.submit.call(quizForm);
+    }
+    return false;
+}
+
+restoreSavedAnswers();
+
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => { document.getElementById('video').srcObject = stream; })
+    .catch(() => { alert("Proctoring Error: Active camera verification mandatory."); window.location.href="/"; });
 
     // --- TAB-SWITCH DETECTOR MODULE ---
     let focusViolations = 0;
