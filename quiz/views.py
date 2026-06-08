@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt  # 🛡️ Core bypass helper
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 
+
 # Binary document file parsers
 try:
     import openpyxl
@@ -141,11 +142,15 @@ def start_quiz(request):
 
     return redirect('login_portal')
 
+
+@csrf_exempt  # 🛡️ Prevents the 403 Forbidden screen during automatic crash-submits
 def submit_quiz(request):
     if request.method == "POST":
         full_name = request.POST.get('full_name', 'Unknown Student').strip()
         index_number = request.POST.get('index_number', '000000').strip().upper()
         course_id = request.POST.get('course_id')
+
+        # 🔑 Capture the dynamic type of breach passed by our frontend engine
         security_breach = request.POST.get('security_breach', 'false')
 
         course_obj = get_object_or_404(Course, id=course_id)
@@ -164,9 +169,14 @@ def submit_quiz(request):
                 if str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
                     correct_count += 1
 
+        # 🛡️ SYSTEM INTEGRITY LOGGING ENGINE
         display_name = full_name
-        if security_breach == "true":
-            display_name += " [⚠️ TERMINATED FOR TAB SWITCHING]"
+
+        # Check for our explicit breach categories
+        if security_breach == "true" or security_breach == "tab_switch":
+            display_name += " [⚠️ TERMINATED: TAB/WINDOW BLUR]"
+        elif security_breach == "split_screen":
+            display_name += " [⚠️ TERMINATED: SPLIT-SCREEN LAYOUT DETECTED]"
 
         StudentSubmission.objects.create(
             student_name=display_name,
@@ -179,11 +189,15 @@ def submit_quiz(request):
         AllowedStudent.objects.filter(index_number=index_number, course=course_obj).update(has_taken_exam=True)
         request.session.flush()
 
+        # Hide scores instantly if any kind of terminal breach parameter was flipped
+        is_breached = security_breach in ["true", "tab_switch", "split_screen"]
+
         return render(request, 'quiz/submitted.html', {
             'student_name': full_name,
             'score': int(correct_count),
-            'show_score': False if security_breach == "true" else course_obj.show_scores
+            'show_score': False if is_breached else course_obj.show_scores
         })
+
     return redirect('login_portal')
 
 

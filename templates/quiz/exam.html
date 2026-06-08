@@ -286,7 +286,7 @@
     }
 function handleManualSubmit(event) {
     if (isAutoSubmitting) return true;
-    event.preventDefault(); // Temporarily intercept the submit event to perform item tracking validation
+    event.preventDefault(); // Pause the event to check completeness
 
     const totalQuestions = document.querySelectorAll('.question-block').length;
     let answeredCount = 0;
@@ -310,10 +310,24 @@ function handleManualSubmit(event) {
         clearExamStorage();
         isAutoSubmitting = true;
 
-        // ✅ NATIVE FORM PROTOTYPE SUBMIT OVERRIDE
-        // Forces a natural browser POST action directly to our exempt backend endpoint,
-        // safely bypassing serverless cookie dropped context issues.
-        HTMLFormElement.prototype.submit.call(quizForm);
+        // Unbind the preventDefault listener completely and call the true native DOM method
+        const targetForm = document.getElementById('quizForm');
+        if (targetForm) {
+            // Remove the onsubmit override to allow clean, uninhibited browser transit
+            targetForm.onsubmit = null;
+
+            // Re-inject token hidden field to make absolute sure it is included
+            const existingToken = targetForm.querySelector('[name=csrfmiddlewaretoken]');
+            if (!existingToken) {
+                const structuralToken = document.createElement('input');
+                structuralToken.type = 'hidden';
+                structuralToken.name = 'csrfmiddlewaretoken';
+                structuralToken.value = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || "";
+                targetForm.appendChild(structuralToken);
+            }
+
+            targetForm.submit();
+        }
     }
     return false;
 }
