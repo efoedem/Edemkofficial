@@ -10,19 +10,19 @@
             File format requirement: Column 1 = **Index Number**, Column 2 = **Full Name** (No headings required).
         </p>
 
-        <<form action="{% url 'upload_allowed_students' %}" method="POST" enctype="multipart/form-data" ...>
+        <form action="{% url 'upload_allowed_students' %}" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
 
-            <div>
+            <div style="margin-bottom: 12px;">
                 <select name="course_id" required style="padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: white; font-size: 0.85rem; color: #334155; font-weight: bold;">
                     <option value="" disabled selected>Select Target Course...</option>
-
                     {% for c in all_system_courses %}
                         <option value="{{ c.id }}">{{ c.code }} - {{ c.title }} ({{ c.exam_name|default:"Quiz" }})</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <div>
+            <div style="margin-bottom: 12px;">
                 <input type="file" name="student_file" accept=".xlsx, .csv" required style="font-size: 0.85rem; color: #475569;">
             </div>
 
