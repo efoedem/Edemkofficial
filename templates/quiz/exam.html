@@ -519,22 +519,30 @@ window.addEventListener('blur', function() {
     }
 });
 
-// 3. Screen Resize / Split-Screen Window Monitor
+// 3. Screen Resize / Split-Screen Window Monitor (Refined for Mobile)
+let resizeTimer;
 window.addEventListener('resize', function() {
-    if (!isExamLoadedFully) return; // Completely ignore shifts while the phone finishes rendering the window
+    // Clear the timer on every resize event
+    clearTimeout(resizeTimer);
 
-    if (isMobileDevice()) {
-        // On phones, soft-keyboards and status bars change window heights.
-        // Only flag a breach if the orientation width shrinks drastically (indicative of true side-by-side splitting).
-        if (window.innerWidth < (screen.width * 0.65)) {
-            triggerTerminalSubmission("split_screen");
+    // Ignore all resizes for the first 5 seconds to let the mobile browser finish UI rendering
+    if (!isExamLoadedFully) return;
+
+    // Set a short delay to ensure the resize is a intentional user action (like dragging a window)
+    // rather than the browser showing/hiding the URL bar or keyboard
+    resizeTimer = setTimeout(() => {
+        if (isMobileDevice()) {
+            // For mobile, only trigger if the width change is extreme (less than 50% of screen width)
+            if (window.innerWidth < (screen.width * 0.5)) {
+                triggerTerminalSubmission("split_screen");
+            }
+        } else {
+            // Desktop rules remain strict
+            if (window.outerWidth < (screen.width * 0.9) || window.outerHeight < (screen.height * 0.9)) {
+                triggerTerminalSubmission("split_screen");
+            }
         }
-    } else {
-        // Desktop Roster Rules: Flag standard browser size adjustments
-        if (window.outerWidth < (screen.width * 0.9) || window.outerHeight < (screen.height * 0.9)) {
-            triggerTerminalSubmission("split_screen");
-        }
-    }
+    }, 2000);
 });
 
 function triggerTerminalSubmission(breachType) {
