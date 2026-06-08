@@ -10,7 +10,6 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt  # 🛡️ Core bypass helper
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 
-
 # Binary document file parsers
 try:
     import openpyxl
@@ -39,11 +38,20 @@ def login_portal(request):
         lat = request.POST.get("lat")
         lng = request.POST.get("lng")
 
-        # 2. Your existing validation logic goes here...
-        # (Checking if course exists, verifying index_number is in AllowedStudent roster, checking perimeter coordinates, etc.)
-
         try:
-            course = Course.objects.get(id=course_id)
+            course = get_object_or_404(Course, id=course_id)
+
+            # 🚨 CRITICAL FIX: Intercept existing student submission logs immediately at login
+            already_submitted = StudentSubmission.objects.filter(
+                index_number=index_number,
+                course=course
+            ).exists()
+
+            if already_submitted:
+                messages.error(request, f"SECURITY LOCKOUT: Index Number {index_number} has an existing paper log.")
+                return redirect("login_portal")
+
+            # 2. Check if index_number is listed on the AllowedStudent roster
             student_exists = AllowedStudent.objects.filter(index_number=index_number, course=course).exists()
 
             if not student_exists:
@@ -78,6 +86,7 @@ def login_portal(request):
 
     return render(request, 'quiz/login.html', context)
 
+
 def get_courses(request):
     """
     Dynamically returns JSON data filtered by lecturer selection
@@ -90,7 +99,6 @@ def get_courses(request):
     return JsonResponse([], safe=False)
 
 
-
 @csrf_exempt  # 🛡️ Bypasses the 403 cookie check when launching the examination window
 def start_quiz(request):
     """
@@ -99,8 +107,6 @@ def start_quiz(request):
     """
     student_name = request.session.get('student_name')
     index_number = request.session.get('index_number')
-
-    # ✅ FIXED: Changed key string to match exactly what login_portal saved
     course_id = request.session.get('course_id')
 
     if not student_name or not index_number or not course_id:
@@ -110,7 +116,7 @@ def start_quiz(request):
     if request.method == "POST":
         course = get_object_or_404(Course, id=course_id)
 
-        # Re-verify submission logs to prevent duplicate windows
+        # Re-verify submission logs to prevent duplicate windows or session back-button hijacking
         already_submitted = StudentSubmission.objects.filter(
             index_number=index_number,
             course=course
@@ -393,7 +399,6 @@ def download_word_template(request):
 # ==========================================================
 #         🔥 ALLOWED STUDENTS BULK ROSTER UPLOADER
 # ==========================================================
-# Helper decorator to ensure only staff access the roster uploader
 def staff_member_required(view_func):
     return user_passes_test(lambda u: u.is_staff)(view_func)
 
@@ -428,14 +433,11 @@ def upload_allowed_students(request):
                     idx = str(row[0]).strip().upper()
                     name = str(row[1]).strip() if len(row) > 1 and row[1] else "Registered Student"
 
-                    # 🛡️ THE WORKAROUND FILTER:
-                    # If this exact student already exists under this EXACT course, drop it from execution array.
-                    # This completely bypasses the global database row crashes!
+                    # 🛡️ WORKAROUND FILTER:
                     if AllowedStudent.objects.filter(index_number=idx, course=course).exists():
                         duplicate_count += 1
                         continue
 
-                    # If they exist under a DIFFERENT course, this block safely proceeds!
                     students_to_create.append(AllowedStudent(course=course, index_number=idx, full_name=name))
 
             # --- PROCESS CSV (.CSV) ROSTERS ---
@@ -447,7 +449,7 @@ def upload_allowed_students(request):
                     decoded_file = file_ref.read().decode('latin-1').splitlines()
 
                 reader = csv.reader(decoded_file)
-                next(reader, None)  # Skip spreadsheet header row
+                next(reader, None)
 
                 for row in reader:
                     if not row or not row[0]:
@@ -456,7 +458,7 @@ def upload_allowed_students(request):
                     idx = str(row[0]).strip().upper()
                     name = str(row[1]).strip() if len(row) > 1 and row[1] else "Registered Student"
 
-                    # 🛡️ THE WORKAROUND FILTER:
+                    # 🛡️ WORKAROUND FILTER:
                     if AllowedStudent.objects.filter(index_number=idx, course=course).exists():
                         duplicate_count += 1
                         continue

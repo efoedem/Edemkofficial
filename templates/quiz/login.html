@@ -47,17 +47,22 @@
         button { width: 100%; padding: 0.85rem; background: var(--primary); color: white; border: none; border-radius: 0.75rem; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 1rem; transition: background 0.2s ease; }
         button:disabled { background: #94a3b8; cursor: not-allowed; }
 
+        /* 🚨 STYLE REDESIGN FOR THE BLOCKED NOTIFICATIONS PANEL */
         .error-msg {
-            color: #b91c1c;
+            color: #991b1b;
             background-color: #fef2f2;
-            border-left: 4px solid #dc2626;
-            padding: 12px;
+            border: 1px solid #fee2e2;
+            border-left: 5px solid #dc2626;
+            padding: 14px;
             font-size: 0.875rem;
             margin-bottom: 1.5rem;
             font-weight: 600;
-            border-radius: 4px;
+            border-radius: 8px;
             text-align: left;
             line-height: 1.4;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
         }
         .gps-status { font-size: 0.8rem; color: #d97706; font-weight: 600; margin-top: 0.75rem; text-align: left; line-height: 1.4; }
 
@@ -96,9 +101,6 @@
     <div class="login-card">
 
         {% if is_authenticated %}
-            <!-- ========================================================== -->
-            <!-- STATE A: CONFIRMATION SCREEN (NO TIMEOUTS, READY TO GO)     -->
-            <!-- ========================================================== -->
             <span class="verification-success-badge">✓ Authorization Verified</span>
             <h2>Ready to Begin?</h2>
             <p class="subtitle" style="margin-bottom: 1rem;">Confirm your details to initialize the workspace lock interface</p>
@@ -129,15 +131,15 @@
             <p class="warning-text">⚠️ Navigating away or changing tabs after launch triggers an instant freeze event.</p>
 
         {% else %}
-            <!-- ========================================================== -->
-            <!-- STATE B: INITIAL GATEKEEPER WITH LOCATION ENFORCEMENT       -->
-            <!-- ========================================================== -->
             <h2>Student Login</h2>
             <p class="subtitle">Enter your details to begin the examination</p>
 
             {% if messages %}
                 {% for message in messages %}
-                    <div class="error-msg">{{ message }}</div>
+                    <div class="error-msg">
+                        <span>❌</span>
+                        <div>{{ message }}</div>
+                    </div>
                 {% endfor %}
             {% endif %}
 
@@ -262,8 +264,6 @@
                 $('#course_select').change(checkAndUnlockButton);
             </script>
         {% endif %}
-
-    </div>
-
+     </div>
 </body>
 </html>
