@@ -17,7 +17,10 @@ SECRET_KEY = 'django-insecure-9#zrm%rmp)1mmqmh11yk+e)i+cbw-cmwuu)#_f20nz)ubx(3hy
 DEBUG = 'False'
 
 ALLOWED_HOSTS = ['.vercel.app', 'now.sh', '127.0.0.1', 'localhost', '*']
-
+CSRF_TRUSTED_ORIGINS = [
+    'https://uenn.vercel.app',
+    'https://*.vercel.app'
+]
 # Application definition
 
 INSTALLED_APPS = [
