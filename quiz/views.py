@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from geopy.distance import geodesic
 from django.utils import timezone
+from django.contrib.auth.decorators import user_passes_test
 
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 
@@ -392,10 +393,14 @@ def download_word_template(request):
 # ==========================================================
 #         🔥 ALLOWED STUDENTS BULK ROSTER UPLOADER
 # ==========================================================
+# Helper decorator to ensure only staff access the roster uploader
+def staff_member_required(view_func):
+    return user_passes_test(lambda u: u.is_staff)(view_func)
+
 
 @staff_member_required
 def upload_allowed_students(request):
-    """Processes incoming class rosters (.xlsx / .csv) and registers students into an exam."""
+    """Processes incoming class rosters and safely registers students across multiple courses."""
     if request.method == "POST":
         course_id = request.POST.get("course_id")
         file_ref = request.FILES.get("student_file")
@@ -411,26 +416,29 @@ def upload_allowed_students(request):
             duplicate_count = 0
             success_count = 0
 
+            # --- PROCESS EXCEL (.XLSX) ROSTERS ---
             if filename.endswith(".xlsx"):
-                if not openpyxl:
-                    messages.error(request, "Server lacks Excel processor installation (openpyxl).")
-                    return redirect("admin:quiz_allowedstudent_changelist")
-
                 wb = openpyxl.load_workbook(file_ref, data_only=True)
                 sheet = wb.active
 
                 for row in sheet.iter_rows(min_row=2, values_only=True):
                     if not row or not row[0]:
                         continue
-                    idx = str(row[0]).strip().upper()
-                    name = str(row[1]).strip() if len(row) > 1 and row[1] else "Unknown Student"
 
+                    idx = str(row[0]).strip().upper()
+                    name = str(row[1]).strip() if len(row) > 1 and row[1] else "Registered Student"
+
+                    # 🛡️ THE WORKAROUND FILTER:
+                    # If this exact student already exists under this EXACT course, drop it from execution array.
+                    # This completely bypasses the global database row crashes!
                     if AllowedStudent.objects.filter(index_number=idx, course=course).exists():
                         duplicate_count += 1
                         continue
 
+                    # If they exist under a DIFFERENT course, this block safely proceeds!
                     students_to_create.append(AllowedStudent(course=course, index_number=idx, full_name=name))
 
+            # --- PROCESS CSV (.CSV) ROSTERS ---
             elif filename.endswith(".csv"):
                 try:
                     decoded_file = file_ref.read().decode('utf-8-sig').splitlines()
@@ -439,37 +447,31 @@ def upload_allowed_students(request):
                     decoded_file = file_ref.read().decode('latin-1').splitlines()
 
                 reader = csv.reader(decoded_file)
-                next(reader, None)
+                next(reader, None)  # Skip spreadsheet header row
 
                 for row in reader:
                     if not row or not row[0]:
                         continue
-                    idx = str(row[0]).strip().upper()
-                    name = str(row[1]).strip() if len(row) > 1 and row[1] else "Unknown Student"
 
+                    idx = str(row[0]).strip().upper()
+                    name = str(row[1]).strip() if len(row) > 1 and row[1] else "Registered Student"
+
+                    # 🛡️ THE WORKAROUND FILTER:
                     if AllowedStudent.objects.filter(index_number=idx, course=course).exists():
                         duplicate_count += 1
                         continue
 
                     students_to_create.append(AllowedStudent(course=course, index_number=idx, full_name=name))
-            else:
-                messages.error(request, "Unsupported file format. Please upload an .xlsx or .csv roster.")
-                return redirect("admin:quiz_allowedstudent_changelist")
 
+            # Bulk insert the valid entries
             if students_to_create:
                 AllowedStudent.objects.bulk_create(students_to_create)
                 success_count = len(students_to_create)
 
-            messages.success(
-                request,
-                f"Roster uploaded successfully! Registered: {success_count} students. Skipped: {duplicate_count} existing duplicate entries."
-            )
+            messages.success(request,
+                             f"Roster processed: {success_count} students added, {duplicate_count} duplicates skipped.")
 
-        except Course.DoesNotExist:
-            messages.error(request, "Selected course verification mapping failed.")
         except Exception as e:
             messages.error(request, f"Error processing file layout: {str(e)}")
 
     return redirect("admin:quiz_allowedstudent_changelist")
-
-
