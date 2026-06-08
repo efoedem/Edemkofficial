@@ -17,18 +17,23 @@ SECRET_KEY = 'django-insecure-9#zrm%rmp)1mmqmh11yk+e)i+cbw-cmwuu)#_f20nz)ubx(3hy
 DEBUG = False
 
 # Clean up hosts to prevent wildcard bypasses crashing session scopes
-ALLOWED_HOSTS = ['uenn.vercel.app', '.vercel.app', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['uenn.vercel.app', '127.0.0.1', 'localhost', '.vercel.app']
 
+# 2. Tell Django to trust Vercel's reverse proxy SSL headers (THIS IS CRITICAL FOR ADMIN LOGINS)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 3. Explicitly trust your production domain for all form submissions
 CSRF_TRUSTED_ORIGINS = [
     'https://uenn.vercel.app',
     'https://*.vercel.app'
 ]
 
-# 🛡️ PRODUCTION CSRF & COOKIE ALIGNMENT Engine
-CSRF_COOKIE_DOMAIN = '.vercel.app'   # Shares cookies across vercel sub-paths smoothly
-CSRF_COOKIE_SECURE = True           # Enforces HTTPS delivery
-SESSION_COOKIE_SECURE = True         # Protects user state integrity
-CSRF_COOKIE_HTTPONLY = False         # Allows jQuery AJAX to safely parse tokens natively
+# 4. Balanced production cookie flags (fixes Admin 403 blocks)
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = False  # Must be False so scripts and admin forms can read it smoothly
+CSRF_COOKIE_SAMESITE = 'Lax'    # 'Lax' fixes standard admin panel form submissions
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 # Application definition
 INSTALLED_APPS = [
