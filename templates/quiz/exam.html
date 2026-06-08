@@ -491,5 +491,82 @@ navigator.mediaDevices.getUserMedia({ video: true })
     assessDisplayGeometry();
 })();
 </script>
+
+<script>
+// ====== MOBILE-SAFE ANTI-CHEAT MONITORING ENGINE ======
+let isExamLoadedFully = false;
+
+// 1. Give the phone browser 2.5 seconds to settle its viewport layout completely upon loading
+setTimeout(() => {
+    isExamLoadedFully = true;
+}, 2500);
+
+// Helper function to check if the student is using a mobile browser layout
+function isMobileDevice() {
+    return window.matchMedia("(max-width: 768px)").matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
+}
+
+// 2. Tab Visibility Focus Monitor (Bypassed during initial load)
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden && isExamLoadedFully) {
+        triggerTerminalSubmission("tab_switch");
+    }
+});
+
+window.addEventListener('blur', function() {
+    if (isExamLoadedFully) {
+        triggerTerminalSubmission("tab_switch");
+    }
+});
+
+// 3. Screen Resize / Split-Screen Window Monitor
+window.addEventListener('resize', function() {
+    if (!isExamLoadedFully) return; // Completely ignore shifts while the phone finishes rendering the window
+
+    if (isMobileDevice()) {
+        // On phones, soft-keyboards and status bars change window heights.
+        // Only flag a breach if the orientation width shrinks drastically (indicative of true side-by-side splitting).
+        if (window.innerWidth < (screen.width * 0.65)) {
+            triggerTerminalSubmission("split_screen");
+        }
+    } else {
+        // Desktop Roster Rules: Flag standard browser size adjustments
+        if (window.outerWidth < (screen.width * 0.9) || window.outerHeight < (screen.height * 0.9)) {
+            triggerTerminalSubmission("split_screen");
+        }
+    }
+});
+
+function triggerTerminalSubmission(breachType) {
+    const payload = {
+        full_name: "{{ student_name|escapejs }}",
+        index_number: "{{ index_number|escapejs }}",
+        course_id: "{{ course.id }}",
+        security_breach: breachType,
+        answers: {}
+    };
+
+    fetch("{% url 'submit_quiz' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "denied" || data.redirect_url) {
+            alert("❌ EXAM WORKSPACE FREEZE:\n\nSplit-screen layout or window reduction detected.");
+            window.location.href = "{% url 'login_portal' %}";
+        } else {
+            window.location.href = "{% url 'login_portal' %}";
+        }
+    })
+    .catch(err => {
+        window.location.href = "{% url 'login_portal' %}";
+    });
+}
+</script>
 </body>
 </html>

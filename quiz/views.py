@@ -137,6 +137,9 @@ def start_quiz(request):
             messages.error(request, "ACCESS DENIED: The examination entry window has closed.")
             return redirect('login_portal')
 
+        # 🚨 SYSTEM ADDITION: Mark exam as officially initialized to prevent instant startup triggers
+        request.session['exam_initialized'] = True
+
         context = {
             'course': course,
             'questions': Question.objects.filter(course=course),
@@ -147,7 +150,6 @@ def start_quiz(request):
         return render(request, 'quiz/exam.html', context)
 
     return redirect('login_portal')
-
 
 @csrf_exempt  # 🛡️ Prevents the 403 Forbidden screen during automatic crash-submits
 def submit_quiz(request):
