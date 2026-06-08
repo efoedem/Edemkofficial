@@ -13,16 +13,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-9#zrm%rmp)1mmqmh11yk+e)i+cbw-cmwuu)#_f20nz)ubx(3hy'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = 'False'
+# 🛑 FIXED: Changed from string 'False' to actual Python Boolean False
+DEBUG = False
 
-ALLOWED_HOSTS = ['.vercel.app', 'now.sh', '127.0.0.1', 'localhost', '*']
+# Clean up hosts to prevent wildcard bypasses crashing session scopes
+ALLOWED_HOSTS = ['uenn.vercel.app', '.vercel.app', 'localhost', '127.0.0.1']
+
 CSRF_TRUSTED_ORIGINS = [
     'https://uenn.vercel.app',
     'https://*.vercel.app'
 ]
-# Application definition
 
+# 🛡️ PRODUCTION CSRF & COOKIE ALIGNMENT Engine
+CSRF_COOKIE_DOMAIN = '.vercel.app'   # Shares cookies across vercel sub-paths smoothly
+CSRF_COOKIE_SECURE = True           # Enforces HTTPS delivery
+SESSION_COOKIE_SECURE = True         # Protects user state integrity
+CSRF_COOKIE_HTTPONLY = False         # Allows jQuery AJAX to safely parse tokens natively
+
+# Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -63,22 +71,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'QUIZ1.wsgi.application'
 
-# Database
-# NOTE: Local SQLite will work, but data clears whenever Vercel's serverless containers reset
-
-# Standard local environment database fallback configuration
-
+# Database Setup
 DATABASES = {
-
     'default': {
-
         'ENGINE': 'django.db.backends.sqlite3',
-
         'NAME': BASE_DIR / 'db.sqlite3',
-
     }
-
 }
+
 # If running live on Vercel with Neon connected, hook up Postgres dynamically
 if 'POSTGRES_URL' in os.environ:
     DATABASES['default'] = dj_database_url.config(
@@ -86,6 +86,7 @@ if 'POSTGRES_URL' in os.environ:
         conn_max_age=600,
         ssl_require=True
     )
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -111,7 +112,6 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
-# Put this back to standard default
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -122,5 +122,3 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-
