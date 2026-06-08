@@ -10,8 +10,5 @@
       "src": "/(.*)",
       "dest": "QUIZ1/wsgi.py"
     }
-  ],
-  "scripts": {
-    "vercel-build": "pip install -r requirements.txt && python manage.py migrate --noinput"
-  }
+  ]
 }
