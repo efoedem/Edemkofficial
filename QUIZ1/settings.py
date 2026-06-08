@@ -64,13 +64,18 @@ WSGI_APPLICATION = 'QUIZ1.wsgi.application'
 # NOTE: Local SQLite will work, but data clears whenever Vercel's serverless containers reset
 
 # Standard local environment database fallback configuration
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
 
+DATABASES = {
+
+    'default': {
+
+        'ENGINE': 'django.db.backends.sqlite3',
+
+        'NAME': BASE_DIR / 'db.sqlite3',
+
+    }
+
+}
 # If running live on Vercel with Neon connected, hook up Postgres dynamically
 if 'POSTGRES_URL' in os.environ:
     DATABASES['default'] = dj_database_url.config(

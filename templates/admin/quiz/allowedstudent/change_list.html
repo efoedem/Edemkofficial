@@ -10,8 +10,7 @@
             File format requirement: Column 1 = **Index Number**, Column 2 = **Full Name** (No headings required).
         </p>
 
-        <form action="{% url 'upload_allowed_students' %}" method="POST" enctype="multipart/form-data" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
-            {% csrf_token %}
+        <<form action="{% url 'upload_allowed_students' %}" method="POST" enctype="multipart/form-data" ...>
 
             <div>
                 <select name="course_id" required style="padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: white; font-size: 0.85rem; color: #334155; font-weight: bold;">
