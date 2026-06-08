@@ -4,33 +4,288 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ course.exam_name }} | {{ course.code }}</title>
+
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; height: 100vh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; }
-        .exam-header { background: #1e293b; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
-        .workspace-wrapper { display: flex; flex: 1; width: 100%; height: calc(100vh - 70px); overflow: hidden; }
-        .scrollable-content { flex: 1; height: 100%; overflow-y: auto; padding: 30px; }
-        #video { width: 180px; position: fixed; top: 85px; right: 20px; border: 3px solid #ef4444; border-radius: 10px; z-index: 1000; background: #000; aspect-ratio: 3/4; object-fit: cover; }
-        .timer-box { background: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; font-weight: bold; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; }
-        .question-block { margin-bottom: 30px; padding: 20px; border-left: 5px solid #2563eb; background: #f8fafc; }
-        .submit-btn { background: #2563eb; color: white; border: none; padding: 14px 35px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        @media (max-width: 768px) { #video { width: 115px; bottom: 20px; top: auto; } }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f7f6;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .exam-header {
+            background: #1e293b;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+            gap: 16px;
+        }
+
+        .exam-header h2 {
+            font-size: 1.3rem;
+            margin: 0;
+        }
+
+        .exam-header p {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .workspace-wrapper {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: calc(100vh - 70px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scrollable-content {
+            flex: 1;
+            height: 100%;
+            overflow-y: auto;
+            padding: 30px 220px 30px 30px;
+            transition: padding-right 0.2s ease;
+        }
+
+        #video {
+            width: 180px;
+            position: fixed;
+            top: 85px;
+            right: 20px;
+            border: 3px solid #ef4444;
+            border-radius: 10px;
+            z-index: 1000;
+            background: #000;
+            aspect-ratio: 3 / 4;
+            object-fit: cover;
+            transition: all 0.2s ease;
+        }
+
+        .timer-box {
+            background: #ef4444;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            white-space: nowrap;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto 40px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .student-line {
+            font-size: 0.95rem;
+            color: #475569;
+            margin-bottom: 20px;
+        }
+
+        .student-line strong {
+            color: #0f172a;
+        }
+
+        .divider {
+            border: 0;
+            border-top: 1px solid #e2e8f0;
+            margin-bottom: 30px;
+        }
+
+        .question-block {
+            margin-bottom: 30px;
+            padding: 20px;
+            border-left: 5px solid #2563eb;
+            background: #f8fafc;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .question-title {
+            font-size: 1.05rem;
+            color: #1e293b;
+            margin-bottom: 15px;
+        }
+
+        .options-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .options-list li {
+            margin: 12px 0;
+        }
+
+        label {
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            word-break: break-word;
+        }
+
+        input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 1rem;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .submit-row {
+            text-align: right;
+            margin-top: 20px;
+        }
+
+        button.submit-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 14px 35px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+            width: auto;
+        }
+
+        button.submit-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .error-overlay {
+            position: fixed;
+            inset: 0;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .error-overlay h1 {
+            color: #ef4444;
+        }
+
+        .error-overlay p {
+            margin-top: 10px;
+            color: #64748b;
+        }
+
+        @media (max-width: 768px) {
+            .exam-header {
+                padding: 10px 15px;
+            }
+
+            .exam-header h2 {
+                font-size: 1.05rem;
+            }
+
+            .scrollable-content {
+                padding: 15px;
+            }
+
+            .container {
+                padding: 20px;
+                border-radius: 8px;
+            }
+
+            .question-block {
+                padding: 15px;
+            }
+
+            button.submit-btn {
+                width: 100%;
+            }
+
+            #video {
+                width: 115px;
+                top: auto;
+                bottom: 20px;
+                right: 15px;
+                border-width: 2px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
+        }
+
+        @media print {
+            body, html, .container, form, div {
+                display: none !important;
+            }
+
+            body::after {
+                content: "SECURITY VIOLATION DETECTED: SCREEN CAPTURES BLOCKED.";
+                font-weight: bold;
+                color: red;
+                font-size: 24px;
+            }
+        }
     </style>
 </head>
-<body oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
 
+<body oncontextmenu="return false;" onselectstart="return false;" ondragstart="return false;">
     <div class="exam-header">
-        <div><h2>{{ course.exam_name }}</h2><p style="font-size: 0.85rem;">{{ course.code }}</p></div>
-        <div class="timer-box">Time Left: <span id="timer">--:--</span></div>
+        <div>
+            <h2>{{ course.exam_name }}</h2>
+            <p>{{ course.code }}: {{ course.title }}</p>
+        </div>
+
+        <div class="timer-box">
+            Time Left: <span id="timer">--:--</span>
+        </div>
     </div>
 
     <div class="workspace-wrapper">
         <video id="video" autoplay muted playsinline></video>
+
         <div class="scrollable-content">
             <div class="container">
+                <p class="student-line">
+                    Student: <strong>{{ student_name }}</strong> |
+                    Index: <strong>{{ index_number }}</strong>
+                </p>
+
+                <hr class="divider">
+
                 <form id="quizForm" action="{% url 'submit_quiz' %}" method="POST" onsubmit="return handleManualSubmit(event);">
                     {% csrf_token %}
+
                     <input type="hidden" name="full_name" value="{{ student_name }}">
                     <input type="hidden" name="index_number" value="{{ index_number }}">
                     <input type="hidden" name="course_id" value="{{ course.id }}">
@@ -38,12 +293,48 @@
 
                     {% for q in questions %}
                         <div class="question-block">
-                            <p><strong>{{ forloop.counter }}. {{ q.text }}</strong></p>
-                            {% if q.q_type == 'MCQ' %}<ul style="list-style:none;"><li><label><input type="radio" name="q{{q.id}}" value="A"> A. {{ q.option_a }}</label></li><li><label><input type="radio" name="q{{q.id}}" value="B"> B. {{ q.option_b }}</label></li></ul>
-                            {% else %}<input type="text" name="q{{q.id}}" style="width: 100%; padding: 10px;">{% endif %}
+                            <p class="question-title">
+                                <strong>{{ forloop.counter }}. {{ q.text }}</strong>
+                            </p>
+
+                            {% if q.q_type == 'MCQ' or q.q_type == 'Multiple Choice' %}
+                                <ul class="options-list">
+                                    <li>
+                                        <label>
+                                            <input type="radio" name="q{{ q.id }}" value="A">
+                                            <span><strong>A.</strong> {{ q.option_a }}</span>
+                                        </label>
+                                    </li>
+                                    <li>
+                                        <label>
+                                            <input type="radio" name="q{{ q.id }}" value="B">
+                                            <span><strong>B.</strong> {{ q.option_b }}</span>
+                                        </label>
+                                    </li>
+                                    <li>
+                                        <label>
+                                            <input type="radio" name="q{{ q.id }}" value="C">
+                                            <span><strong>C.</strong> {{ q.option_c }}</span>
+                                        </label>
+                                    </li>
+                                    <li>
+                                        <label>
+                                            <input type="radio" name="q{{ q.id }}" value="D">
+                                            <span><strong>D.</strong> {{ q.option_d }}</span>
+                                        </label>
+                                    </li>
+                                </ul>
+                            {% elif q.q_type == 'FITB' or q.q_type == 'Fill in the Blank' %}
+                                <input type="text" name="q{{ q.id }}" placeholder="Type answer here">
+                            {% else %}
+                                <textarea name="q{{ q.id }}" rows="4" placeholder="Type essay response here"></textarea>
+                            {% endif %}
                         </div>
                     {% endfor %}
-                    <button type="submit" class="submit-btn">Submit Examination</button>
+
+                    <div class="submit-row">
+                        <button type="submit" class="submit-btn">Submit Examination</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -52,44 +343,313 @@
     <script>
         let isAutoSubmitting = false;
         let isExamLoadedFully = false;
+        let focusViolations = 0;
+        let splitScreenViolations = 0;
 
-        // 5-second grace period prevents mobile UI glitches from triggering breaches
-        window.addEventListener('load', () => { setTimeout(() => { isExamLoadedFully = true; }, 5000); });
+        const courseId = "{{ course.id }}";
+        const studentIndex = "{{ index_number }}";
+        const storageKeyPrefix = "exam_" + courseId + "_" + studentIndex + "_";
+        const timerStorageKey = storageKeyPrefix + "time_left";
+        const answersStorageKey = storageKeyPrefix + "saved_answers";
 
-        // Timer & Storage Logic
-        const storageKeyPrefix = "exam_{{ course.id }}_{{ index_number }}_";
-        let timeLeft = parseInt(localStorage.getItem(storageKeyPrefix + "time_left") || "{{ duration_ms|default:'0' }}", 10);
+        const timerDisplay = document.getElementById("timer");
+        const quizForm = document.getElementById("quizForm");
+        const securityBreachInput = document.getElementById("security_breach_flag");
 
-        const countdown = setInterval(() => {
+        const totalDurationMs = parseInt("{{ duration_ms|default:'0' }}", 10) || 0;
+        let timeLeft = parseInt(localStorage.getItem(timerStorageKey), 10);
+
+        if (!Number.isFinite(timeLeft) || timeLeft <= 0) {
+            timeLeft = totalDurationMs;
+            localStorage.setItem(timerStorageKey, String(timeLeft));
+        }
+
+        window.addEventListener("load", function () {
+            setTimeout(function () {
+                isExamLoadedFully = true;
+            }, 3000);
+        });
+
+        function formatTime(milliseconds) {
+            const safeTime = Math.max(0, milliseconds);
+            const mins = Math.floor(safeTime / 60000);
+            const secs = Math.floor((safeTime % 60000) / 1000);
+            return mins + ":" + (secs < 10 ? "0" : "") + secs;
+        }
+
+        function updateTimerDisplay() {
+            timerDisplay.textContent = formatTime(timeLeft);
+        }
+
+        function clearExamStorage() {
+            localStorage.removeItem(timerStorageKey);
+            localStorage.removeItem(answersStorageKey);
+        }
+
+        function nativeSubmitForm() {
+            quizForm.onsubmit = null;
+            HTMLFormElement.prototype.submit.call(quizForm);
+        }
+
+        function terminateExamSession(violationType, message) {
+            if (isAutoSubmitting) return;
+
+            isAutoSubmitting = true;
+            securityBreachInput.value = violationType;
+            clearExamStorage();
+
+            if (message) {
+                alert(message);
+            }
+
+            nativeSubmitForm();
+        }
+
+        function restoreSavedAnswers() {
+            const savedAnswersRaw = localStorage.getItem(answersStorageKey);
+            if (!savedAnswersRaw) return;
+
+            try {
+                const savedAnswers = JSON.parse(savedAnswersRaw);
+
+                Object.keys(savedAnswers).forEach(function (name) {
+                    const value = savedAnswers[name];
+                    const inputElement = document.querySelector('[name="' + name + '"]');
+
+                    if (!inputElement) return;
+
+                    if (inputElement.type === "radio") {
+                        const targetRadio = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
+                        if (targetRadio) targetRadio.checked = true;
+                    } else {
+                        inputElement.value = value;
+                    }
+                });
+            } catch (error) {
+                localStorage.removeItem(answersStorageKey);
+            }
+        }
+
+        function saveCurrentAnswers() {
+            const formData = new FormData(quizForm);
+            const answersObj = {};
+
+            for (const entry of formData.entries()) {
+                const key = entry[0];
+                const value = String(entry[1]);
+
+                if (key.startsWith("q") && value.trim() !== "") {
+                    answersObj[key] = value;
+                }
+            }
+
+            localStorage.setItem(answersStorageKey, JSON.stringify(answersObj));
+        }
+
+        function handleManualSubmit(event) {
+            if (isAutoSubmitting) return true;
+
+            event.preventDefault();
+
+            const totalQuestions = document.querySelectorAll(".question-block").length;
+            let answeredCount = 0;
+
+            const radioGroups = new Set();
+            document.querySelectorAll('input[type="radio"]').forEach(function (radio) {
+                radioGroups.add(radio.name);
+            });
+
+            radioGroups.forEach(function (name) {
+                if (document.querySelector('input[name="' + name + '"]:checked')) {
+                    answeredCount++;
+                }
+            });
+
+            document.querySelectorAll('input[type="text"], textarea').forEach(function (field) {
+                if (field.value.trim() !== "") {
+                    answeredCount++;
+                }
+            });
+
+            let message = "Are you sure you want to finalize and submit your examination?";
+
+            if (answeredCount < totalQuestions) {
+                message = "Warning: You have answered only " + answeredCount + " out of " + totalQuestions + " questions.\n\nAre you sure you want to submit your paper?";
+            }
+
+            if (confirm(message)) {
+                clearExamStorage();
+                isAutoSubmitting = true;
+                nativeSubmitForm();
+            }
+
+            return false;
+        }
+
+        function isMobileDevice() {
+            return window.matchMedia("(max-width: 768px)").matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
+        }
+
+        function assessDisplayGeometry() {
+            if (!isExamLoadedFully || isAutoSubmitting) return;
+
+            const splitScreenDetected = isMobileDevice()
+                ? window.innerWidth < screen.width * 0.4
+                : window.outerWidth < screen.width * 0.8;
+
+            if (splitScreenDetected) {
+                splitScreenViolations++;
+
+                if (splitScreenViolations >= 2) {
+                    terminateExamSession(
+                        "split_screen",
+                        "EXAM WORKSPACE LOCKED:\n\nSplit-screen or reduced-window configuration detected. This incident has been logged."
+                    );
+                }
+            } else {
+                splitScreenViolations = 0;
+            }
+        }
+
+        updateTimerDisplay();
+        restoreSavedAnswers();
+
+        quizForm.addEventListener("change", saveCurrentAnswers);
+        quizForm.addEventListener("input", saveCurrentAnswers);
+
+        const countdown = setInterval(function () {
             timeLeft -= 1000;
-            localStorage.setItem(storageKeyPrefix + "time_left", timeLeft);
-            let mins = Math.floor(timeLeft / 60000), secs = Math.floor((timeLeft % 60000) / 1000);
-            document.getElementById('timer').innerHTML = mins + ":" + (secs < 10 ? "0" : "") + secs;
-            if (timeLeft <= 0) { clearInterval(countdown); triggerBreach("time_expired"); }
+            localStorage.setItem(timerStorageKey, String(timeLeft));
+            updateTimerDisplay();
+
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                terminateExamSession("time_expired", "TIME EXPIRED. Your examination will now be submitted automatically.");
+            }
         }, 1000);
 
-        function triggerBreach(breachType) {
-            if (isAutoSubmitting || !isExamLoadedFully) return;
-            isAutoSubmitting = true;
-            document.getElementById('security_breach_flag').value = breachType;
-            localStorage.removeItem(storageKeyPrefix + "time_left");
-            localStorage.removeItem(storageKeyPrefix + "saved_answers");
-            alert("SECURITY ALERT: " + breachType + ". Submitting paper.");
-            document.getElementById('quizForm').submit();
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function (stream) {
+                document.getElementById("video").srcObject = stream;
+            })
+            .catch(function () {
+                alert("Proctoring Error: Active camera verification is mandatory.");
+                window.location.href = "/";
+            });
+
+        function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+            const a =
+                Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                Math.cos(phi1) * Math.cos(phi2) *
+                Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
-        // Monitors
-        document.addEventListener("visibilitychange", () => { if (document.hidden) triggerBreach("tab_switch"); });
-        window.addEventListener('resize', () => { if (window.innerWidth < (screen.width * 0.3)) triggerBreach("split_screen"); });
+        navigator.geolocation.getCurrentPosition(
+            function (pos) {
+                const courseLat = parseFloat("{{ course.latitude|default:'0' }}");
+                const courseLon = parseFloat("{{ course.longitude|default:'0' }}");
+                const radiusMeters = parseInt("{{ course.radius_meters|default:'500' }}", 10);
 
-        function handleManualSubmit(e) {
-            if (!confirm("Submit examination?")) { e.preventDefault(); return false; }
-            isAutoSubmitting = true;
+                const distance = calculateHaversineDistance(
+                    pos.coords.latitude,
+                    pos.coords.longitude,
+                    courseLat,
+                    courseLon
+                );
+
+                if (distance > radiusMeters) {
+                    document.body.innerHTML = '<div class="error-overlay"><h1>ACCESS DENIED</h1><p>You are outside the authorized examination perimeter.</p></div>';
+                }
+            },
+            function () {
+                alert("Active geolocation verification is mandatory.");
+                window.location.href = "/";
+            },
+            { enableHighAccuracy: false }
+        );
+
+        document.addEventListener("visibilitychange", function () {
+            if (!isExamLoadedFully || isAutoSubmitting) return;
+
+            if (document.hidden) {
+                focusViolations++;
+
+                if (focusViolations === 1) {
+                    alert("CRITICAL SECURITY WARNING:\n\nYou have navigated away from the exam screen. A second violation will submit your examination automatically.");
+                } else {
+                    terminateExamSession(
+                        "tab_switch",
+                        "EXAM TERMINATED:\n\nMultiple navigation violations detected. Your paper will now be submitted."
+                    );
+                }
+            }
+        });
+
+        history.pushState(null, "", window.location.href);
+
+        window.addEventListener("popstate", function () {
+            history.pushState(null, "", window.location.href);
+            terminateExamSession(
+                "browser_navigation",
+                "EXAM TERMINATED:\n\nUsing browser navigation is forbidden. Your paper will now be submitted."
+            );
+        });
+
+        window.addEventListener("pageshow", function (event) {
+            if (event.persisted) {
+                terminateExamSession("browser_cache_restore", "");
+            }
+        });
+
+        document.addEventListener("contextmenu", function (event) {
+            event.preventDefault();
+        });
+
+        document.addEventListener("copy", function (event) {
+            event.preventDefault();
+        });
+
+        document.addEventListener("paste", function (event) {
+            event.preventDefault();
+        });
+
+        document.addEventListener("keydown", function (event) {
+            const key = event.key.toUpperCase();
+
+            const blockedShortcut =
+                event.key === "F12" ||
+                (event.ctrlKey && event.shiftKey && ["I", "J", "C"].includes(key)) ||
+                (event.ctrlKey && ["U", "P", "S"].includes(key));
+
+            if (blockedShortcut) {
+                event.preventDefault();
+                alert("This browser action is restricted during the examination.");
+                return false;
+            }
+
             return true;
-        }
+        });
 
-        // Camera & Geolocation (Simplified)
-        navigator.mediaDevices.getUserMedia({ video: true }).then(s => document.getElementById('video').srcObject = s).catch(() => window.location.href="/");
+        window.addEventListener("keyup", function (event) {
+            if (event.key === "PrintScreen" && navigator.clipboard) {
+                navigator.clipboard.writeText("");
+                alert("Screenshot capture is restricted during the examination.");
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            setTimeout(assessDisplayGeometry, 150);
+        });
+
+        setInterval(assessDisplayGeometry, 2000);
     </script>
 </body>
 </html>
