@@ -63,6 +63,6 @@ urlpatterns = [
     path('submit-quiz/', views.submit_quiz, name='submit_quiz'),
 # Add this line within the urlpatterns array inside QUIZ1/urls.py
 # 🎯 UNIQUE ROUTE: Moves out of the admin/ namespace to prevent routing hijacks
-    #path('bulk-upload-students/', views.upload_allowed_students, name='upload_allowed_students'),
+    path('bulk-upload-students/', views.upload_allowed_students, name='upload_allowed_students'),
 
 ]
