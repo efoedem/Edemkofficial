@@ -65,11 +65,41 @@
         </div>
     </div>
 
-    <script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+<script>
     // 1. STATE & STABILIZATION
     let isAutoSubmitting = false;
     let isExamLoadedFully = false;
     window.addEventListener('load', () => { setTimeout(() => { isExamLoadedFully = true; }, 5000); });
+
+    // 2. LOAD AI MODELS
+    async function initProctoring() {
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/static/models');
+        const video = document.getElementById('video');
+        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+        video.srcObject = stream;
+
+        video.addEventListener('play', () => {
+            setInterval(async () => {
+                if (!isExamLoadedFully || isAutoSubmitting) return;
+
+                // A. Face Detection
+                const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+                if (!detection) { terminateExam("face_lost"); return; }
+
+                // B. Lighting/Darkness Check
+                const canvas = document.createElement('canvas');
+                canvas.width = 160; canvas.height = 120;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, 160, 120);
+                const data = ctx.getImageData(0, 0, 160, 120).data;
+                let brightness = 0;
+                for (let i = 0; i < data.length; i += 4) brightness += (data[i] + data[i+1] + data[i+2]) / 3;
+                if ((brightness / (160 * 120)) < 15) { terminateExam("camera_covered_or_too_dark"); }
+            }, 2000);
+        });
+    }
+    initProctoring();
 
    // 2. TIMER LOGIC
 const storageKey = "exam_{{ course.id }}_{{ index_number }}_time_left";

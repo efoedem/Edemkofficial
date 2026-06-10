@@ -5,7 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5622357e-2275-42d1-8778-b6b58579ba1e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/templates/quiz/exam.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/quiz/exam.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/static/models/age_gender_model-weights_manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/static/models/face_landmark_68_model-weights_manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/static/models/tiny_face_detector_model-shard1" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/static/models/tiny_face_detector_model-weights_manifest.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,6 +68,7 @@
     "django.template.preview.state": "SHOW_EDITOR_AND_PREVIEW",
     "git-widget-placeholder": "main",
     "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "C:/Users/EDEM/PycharmProjects/DjangoProject/static/models",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -74,6 +79,9 @@
   }
 }]]></component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\EDEM\PycharmProjects\DjangoProject\static\models" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\EDEM\PycharmProjects\DjangoProject\templates\admin\quiz\question" />
     </key>
