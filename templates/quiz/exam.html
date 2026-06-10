@@ -126,19 +126,38 @@ const countdown = setInterval(() => {
         form.submit();
     }
 
-    // 4. ANTI-CHEAT MONITORS
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden && isExamLoadedFully && !isAutoSubmitting) {
-            terminateExam("tab_switch");
-        }
-    });
+    // 4. ANTI-CHEAT MONITORS - AGGRESSIVE DETECTION
+let isFocused = true;
 
-    setInterval(() => {
-        if (isExamLoadedFully && !isAutoSubmitting && (window.innerWidth < (screen.width * 0.7))) {
+// 1. Detect Focus Loss (Task View, Alt+Tab, Switching Apps)
+window.addEventListener("blur", () => {
+    isFocused = false;
+    if (isExamLoadedFully && !isAutoSubmitting) {
+        terminateExam("window_focus_lost");
+    }
+});
+
+window.addEventListener("focus", () => {
+    isFocused = true;
+});
+
+// 2. Detect Tab Switching
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden && isExamLoadedFully && !isAutoSubmitting) {
+        terminateExam("tab_switch");
+    }
+});
+
+// 3. Detect Split Screen / Window Resize
+setInterval(() => {
+    // Check if window is significantly smaller than the primary screen
+    // or if the window is moved to a side (common in split screen)
+    if (isExamLoadedFully && !isAutoSubmitting) {
+        if (window.innerWidth < (screen.width * 0.8)) {
             terminateExam("split_screen");
         }
-    }, 2000);
-
+    }
+}, 1000);
     // 5. CAMERA & GEOLOCATION (Added explicit failure handling)
     navigator.mediaDevices.getUserMedia({ video: true })
         .then(s => document.getElementById('video').srcObject = s)
