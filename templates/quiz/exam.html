@@ -66,49 +66,78 @@
     </div>
 
     <script>
-        // 1. STATE & STABILIZATION
-        let isAutoSubmitting = false;
-        let isExamLoadedFully = false;
-        window.addEventListener('load', () => { setTimeout(() => { isExamLoadedFully = true; }, 5000); });
+    // 1. STATE & STABILIZATION
+    let isAutoSubmitting = false;
+    let isExamLoadedFully = false;
+    window.addEventListener('load', () => { setTimeout(() => { isExamLoadedFully = true; }, 5000); });
 
-        // 2. TIMER LOGIC
-        const storageKey = "exam_{{ course.id }}_{{ index_number }}_time_left";
-        let timeLeft = parseInt(localStorage.getItem(storageKey) || "{{ duration_ms|default:'0' }}", 10);
-        const timerDisplay = document.getElementById('timer');
+    // 2. TIMER LOGIC
+    const storageKey = "exam_{{ course.id }}_{{ index_number }}_time_left";
+    let timeLeft = parseInt(localStorage.getItem(storageKey) || "{{ duration_ms|default:'0' }}", 10);
+    const timerDisplay = document.getElementById('timer');
 
-        const countdown = setInterval(() => {
-            timeLeft -= 1000;
-            localStorage.setItem(storageKey, timeLeft);
-            let m = Math.floor(timeLeft/60000), s = Math.floor((timeLeft%60000)/1000);
-            timerDisplay.innerHTML = m + ":" + (s < 10 ? "0" : "") + s;
-            if (timeLeft <= 0) { clearInterval(countdown); terminateExam("time_expired"); }
-        }, 1000);
+    const countdown = setInterval(() => {
+        timeLeft -= 1000;
+        localStorage.setItem(storageKey, timeLeft);
+        let m = Math.floor(timeLeft/60000), s = Math.floor((timeLeft%60000)/1000);
+        timerDisplay.innerHTML = m + ":" + (s < 10 ? "0" : "") + s;
 
-        // 3. UNIFIED TERMINATION
-        function terminateExam(breachType) {
-            if (isAutoSubmitting) return;
-            isAutoSubmitting = true;
-            document.getElementById('security_breach_flag').value = breachType;
-            alert("SECURITY ALERT: " + breachType + ". Submitting now.");
-            const form = document.getElementById('quizForm');
-            form.onsubmit = null;
-            form.submit();
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            terminateExam("time_expired");
         }
+    }, 1000);
 
-        // 4. ANTI-CHEAT MONITORS
-        document.addEventListener("visibilitychange", () => {
-            if (document.hidden && isExamLoadedFully) terminateExam("tab_switch");
+    // 3. UNIFIED TERMINATION
+    function terminateExam(breachType) {
+        if (isAutoSubmitting) return;
+        isAutoSubmitting = true;
+
+        // Update breach flag and UI
+        document.getElementById('security_breach_flag').value = breachType;
+        const form = document.getElementById('quizForm');
+
+        // Visual feedback
+        document.body.style.opacity = "0.5";
+        document.body.style.pointerEvents = "none";
+        alert("Examination session ending: " + breachType.replace('_', ' ').toUpperCase());
+
+        // Force submit
+        form.submit();
+    }
+
+    // 4. ANTI-CHEAT MONITORS
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden && isExamLoadedFully && !isAutoSubmitting) {
+            terminateExam("tab_switch");
+        }
+    });
+
+    setInterval(() => {
+        if (isExamLoadedFully && !isAutoSubmitting && (window.innerWidth < (screen.width * 0.7))) {
+            terminateExam("split_screen");
+        }
+    }, 2000);
+
+    // 5. CAMERA & GEOLOCATION (Added explicit failure handling)
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(s => document.getElementById('video').srcObject = s)
+        .catch(err => {
+            alert("Camera access is mandatory for this exam. Redirecting...");
+            window.location.href = "/";
         });
-        setInterval(() => {
-            if (isExamLoadedFully && window.innerWidth < (screen.width * 0.7)) terminateExam("split_screen");
-        }, 2000);
 
-        // 5. CAMERA & GEOLOCATION
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(s => document.getElementById('video').srcObject = s)
-            .catch(() => window.location.href="/");
-
-        navigator.geolocation.getCurrentPosition((pos) => {}, () => window.location.href="/");
-    </script>
+    // 6. PREVENT FORM DOUBLE SUBMISSION
+    document.getElementById('quizForm').addEventListener('submit', function(e) {
+        if (isAutoSubmitting) return;
+        if (!confirm("Are you sure you want to submit your answers? This cannot be undone.")) {
+            e.preventDefault();
+        } else {
+            isAutoSubmitting = true;
+            document.querySelector('.submit-btn').disabled = true;
+            document.querySelector('.submit-btn').innerText = "Submitting...";
+        }
+    });
+</script>
 </body>
 </html>

@@ -26,55 +26,51 @@ from pypdf import PdfReader
 # ==========================================================
 
 
-@csrf_exempt  # 🛡️ This completely bypasses the 403 cookie check for the login form submission
+@csrf_exempt
 def login_portal(request):
-    """Handles initial gatekeeper authentication and location verification for students."""
     if request.method == "POST":
-        # 1. Grab incoming parameters from the form submission
         lecturer_id = request.POST.get("lecturer_id")
         course_id = request.POST.get("course_id")
         index_number = request.POST.get("index_number", "").strip().upper()
 
-        # Capture incoming telemetry parameters
-        lat = request.POST.get("lat")
-        lng = request.POST.get("lng")
-
         try:
             course = get_object_or_404(Course, id=course_id)
 
-            # 🚨 CRITICAL FIX: Intercept existing student submission logs immediately at login
-            already_submitted = StudentSubmission.objects.filter(
-                index_number=index_number,
-                course=course
-            ).exists()
+            # 🛡️ TIME GATEKEEPER (Added here)
+            now = timezone.now()
+            if now < course.start_time:
+                messages.error(request, f"Examination has not started. It begins at {course.start_time.strftime('%I:%M %p')}.")
+                return redirect("login_portal")
+            if now > course.end_time:
+                messages.error(request, "Examination window has closed.")
+                return redirect("login_portal")
 
+            # 🚨 EXISTING SUBMISSION CHECK
+            already_submitted = StudentSubmission.objects.filter(index_number=index_number, course=course).exists()
             if already_submitted:
                 messages.error(request, f"SECURITY LOCKOUT: Index Number {index_number} has an existing paper log.")
                 return redirect("login_portal")
 
             # 2. Check if index_number is listed on the AllowedStudent roster
-            student_exists = AllowedStudent.objects.filter(index_number=index_number, course=course).exists()
-
-            if not student_exists:
+            student = AllowedStudent.objects.filter(index_number=index_number, course=course).first()
+            if not student:
                 messages.error(request, f"Index Number {index_number} is not registered for this examination roster.")
                 return redirect("login_portal")
 
-            # Store verified state parameters safely inside the session scope
+            # Store verified state parameters
             request.session['is_authenticated'] = True
-            request.session['student_name'] = AllowedStudent.objects.filter(index_number=index_number,
-                                                                            course=course).first().full_name
+            request.session['student_name'] = student.full_name
             request.session['index_number'] = index_number
             request.session['course_id'] = course.id
 
-            return redirect("login_portal")  # Reloads view to trigger State A (Confirmation screen)
+            return redirect("login_portal")
 
         except Exception as e:
             messages.error(request, f"Authentication runtime error: {str(e)}")
             return redirect("login_portal")
 
-    # GET Request: Render the initial clean gatekeeper interface
+    # GET Request Logic
     lecturers = Lecturer.objects.all()
-
     context = {
         'lecturers': lecturers,
         'is_authenticated': request.session.get('is_authenticated', False),
@@ -83,7 +79,11 @@ def login_portal(request):
     }
 
     if request.session.get('course_id'):
-        context['course'] = Course.objects.filter(id=request.session.get('course_id')).first()
+        course = Course.objects.filter(id=request.session.get('course_id')).first()
+        context['course'] = course
+        now = timezone.now()
+        # Pass status to help display buttons/messages in login.html
+        context['status'] = 'WAITING' if timezone.now() < course.start_time else 'ACTIVE'
 
     return render(request, 'quiz/login.html', context)
 
@@ -100,7 +100,6 @@ def get_courses(request):
     return JsonResponse([], safe=False)
 
 
-
 @csrf_exempt
 def start_quiz(request):
     student_name = request.session.get('student_name')
@@ -113,73 +112,81 @@ def start_quiz(request):
     if request.method == "POST":
         course = get_object_or_404(Course, id=course_id)
 
-        # ... (keep your existing submission check and time gatekeeper logic here) ...
+        # 🛡️ TIME GATEKEEPER
+        now = timezone.now()
+        if now < course.start_time:
+            messages.error(request, "Examination has not started yet.")
+            return redirect('login_portal')
+        if now > course.end_time:
+            messages.error(request, "Examination window has closed.")
+            return redirect('login_portal')
 
-        # --- RANDOMIZATION ENGINE ---
-        # 1. Fetch and shuffle questions
-        questions_list = list(Question.objects.filter(course=course))
-        random.shuffle(questions_list)
+        # Prevent duplicate submissions
+        if StudentSubmission.objects.filter(index_number=index_number, course=course).exists():
+            messages.error(request, "You have already submitted this paper.")
+            return redirect('login_portal')
 
-        # 2. Prepare randomized option structure
-        shuffled_questions_data = []
-        for q in questions_list:
+        # Randomization Engine
+        raw_questions = list(Question.objects.filter(course=course))
+        random.shuffle(raw_questions)
+
+        questions_data = []
+        for q in raw_questions:
             if q.q_type == 'MCQ':
-                # Create options list while mapping them to their identifiers (A, B, C, D)
-                options = [
-                    {'val': 'A', 'text': q.option_a},
-                    {'val': 'B', 'text': q.option_b},
-                    {'val': 'C', 'text': q.option_c},
-                    {'val': 'D', 'text': q.option_d},
-                ]
+                options = [{'val': 'A', 'text': q.option_a}, {'val': 'B', 'text': q.option_b},
+                           {'val': 'C', 'text': q.option_c}, {'val': 'D', 'text': q.option_d}]
                 random.shuffle(options)
-                shuffled_questions_data.append({'q': q, 'options': options})
+                questions_data.append({'q': q, 'options': options})
             else:
-                shuffled_questions_data.append({'q': q, 'options': None})
+                questions_data.append({'q': q, 'options': None})
 
         request.session['exam_initialized'] = True
-
         context = {
             'course': course,
-            'questions_data': shuffled_questions_data,  # Use this in template
+            'questions_data': questions_data,
             'student_name': student_name,
             'index_number': index_number,
             'duration_ms': course.duration_minutes * 60 * 1000
         }
         return render(request, 'quiz/exam.html', context)
-
     return redirect('login_portal')
-@csrf_exempt  # 🛡️ Prevents the 403 Forbidden screen during automatic crash-submits
+
+
+@csrf_exempt
 def submit_quiz(request):
     if request.method == "POST":
-        full_name = request.POST.get('full_name', 'Unknown Student').strip()
-        index_number = request.POST.get('index_number', '000000').strip().upper()
+        # 1. Capture basic identifiers from the POST request
         course_id = request.POST.get('course_id')
-
-        # 🔑 Capture the dynamic type of breach passed by our frontend engine
-        security_breach = request.POST.get('security_breach', 'false')
+        index_number = request.POST.get('index_number', '000000').strip().upper()
+        full_name = request.POST.get('full_name', 'Unknown Student').strip()  # You were missing this!
 
         course_obj = get_object_or_404(Course, id=course_id)
 
-        if StudentSubmission.objects.filter(index_number=index_number, course=course_obj).exists():
-            return HttpResponse("Form processing rejected: Duplicate paper submission detected for this index profile.",
-                                status=403)
+        # 🛡️ SUBMISSION GATEKEEPER
+        if timezone.now() > (course_obj.end_time + timezone.timedelta(seconds=60)):
+            return HttpResponse("Submission rejected: Examination window has closed.", status=403)
 
+        # 🔑 Capture breach flags
+        security_breach = request.POST.get('security_breach', 'false')
+
+        # 🛡️ Duplicate submission check
+        if StudentSubmission.objects.filter(index_number=index_number, course=course_obj).exists():
+            return HttpResponse("Form processing rejected: Duplicate paper submission detected.", status=403)
+
+        # 2. Process Answers
         answers = {key: value for key, value in request.POST.items() if key.startswith('q')}
         all_questions = Question.objects.filter(course=course_obj)
 
         correct_count = 0
         for q in all_questions:
             submitted_val = answers.get(f'q{q.id}')
-            if submitted_val:
-                if str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
-                    correct_count += 1
+            if submitted_val and str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
+                correct_count += 1
 
-        # 🛡️ SYSTEM INTEGRITY LOGGING ENGINE
+        # 🛡️ SYSTEM INTEGRITY LOGGING
         display_name = full_name
-
-        # Check for our explicit breach categories
-        if security_breach == "true" or security_breach == "tab_switch":
-            display_name += " [⚠️ TERMINATED: TAB/WINDOW BLUR]"
+        if security_breach in ["true", "tab_switch"]:
+            display_name += " [⚠️ TERMINATED: TAB SWITCH/WINDOW BLUR]"
         elif security_breach == "split_screen":
             display_name += " [⚠️ TERMINATED: SPLIT-SCREEN LAYOUT DETECTED]"
 
@@ -194,7 +201,6 @@ def submit_quiz(request):
         AllowedStudent.objects.filter(index_number=index_number, course=course_obj).update(has_taken_exam=True)
         request.session.flush()
 
-        # Hide scores instantly if any kind of terminal breach parameter was flipped
         is_breached = security_breach in ["true", "tab_switch", "split_screen"]
 
         return render(request, 'quiz/submitted.html', {

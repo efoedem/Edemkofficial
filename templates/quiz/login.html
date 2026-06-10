@@ -103,7 +103,6 @@
         {% if is_authenticated %}
             <span class="verification-success-badge">✓ Authorization Verified</span>
             <h2>Ready to Begin?</h2>
-            <p class="subtitle" style="margin-bottom: 1rem;">Confirm your details to initialize the workspace lock interface</p>
 
             <div class="details-box">
                 <div class="details-row">
@@ -120,14 +119,26 @@
                 </div>
             </div>
 
-            <form action="{% url 'start_quiz' %}" method="POST" id="launch-exam-form">
-                {% csrf_token %}
-                <div class="gps-status" style="color: #059669;">✓ Perimeter parameters checked and verified.</div>
+            {% if status == 'ACTIVE' %}
+                <form action="{% url 'start_quiz' %}" method="POST" id="launch-exam-form">
+                    {% csrf_token %}
+                    <div class="gps-status" style="color: #059669;">✓ Perimeter parameters checked and verified.</div>
+                    <button type="submit" id="launch_btn">Launch Examination Sheet</button>
+                </form>
+            {% else %}
+                <div class="error-msg" style="margin-top: 1rem;">
+                    <span>⏳</span>
+                    <div>
+                        <strong>Examination Locked</strong><br>
+                        This paper is scheduled to begin at <strong>{{ course.start_time|time:"h:i A" }}</strong>.
+                    </div>
+                </div>
+                <button disabled>Waiting for Exam Start Time...</button>
+                <script>
+                    setTimeout(() => { location.reload(); }, 30000);
+                </script>
+            {% endif %}
 
-                <button type="submit" id="launch_btn">
-                    Launch Examination Sheet
-                </button>
-            </form>
             <p class="warning-text">⚠️ Navigating away or changing tabs after launch triggers an instant freeze event.</p>
 
         {% else %}
@@ -141,6 +152,8 @@
                         <div>{{ message }}</div>
                     </div>
                 {% endfor %}
+            {% endif %}
+
             {% endif %}
 
             <form action="{% url 'login_portal' %}" method="POST" id="main_form">
