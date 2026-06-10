@@ -71,22 +71,42 @@
     let isExamLoadedFully = false;
     window.addEventListener('load', () => { setTimeout(() => { isExamLoadedFully = true; }, 5000); });
 
-    // 2. TIMER LOGIC
-    const storageKey = "exam_{{ course.id }}_{{ index_number }}_time_left";
-    let timeLeft = parseInt(localStorage.getItem(storageKey) || "{{ duration_ms|default:'0' }}", 10);
-    const timerDisplay = document.getElementById('timer');
+   // 2. TIMER LOGIC
+const storageKey = "exam_{{ course.id }}_{{ index_number }}_time_left";
 
-    const countdown = setInterval(() => {
-        timeLeft -= 1000;
+// Get saved time, but ONLY use it if it's greater than 0
+const savedTime = localStorage.getItem(storageKey);
+let timeLeft = (savedTime && parseInt(savedTime, 10) > 0)
+                ? parseInt(savedTime, 10)
+                : parseInt("{{ duration_ms|default:'0' }}", 10);
+
+const timerDisplay = document.getElementById('timer');
+
+// Safety: If the page loads and the exam is already past the end time, kill it immediately
+const serverEndTime = new Date("{{ course.end_time|date:'Y-m-d H:i:s' }}").getTime();
+if (new Date().getTime() > serverEndTime) {
+    terminateExam("time_expired");
+}
+
+const countdown = setInterval(() => {
+    timeLeft -= 1000;
+
+    // Persist only positive values
+    if (timeLeft > 0) {
         localStorage.setItem(storageKey, timeLeft);
-        let m = Math.floor(timeLeft/60000), s = Math.floor((timeLeft%60000)/1000);
-        timerDisplay.innerHTML = m + ":" + (s < 10 ? "0" : "") + s;
+    } else {
+        localStorage.removeItem(storageKey); // Clear it once finished
+    }
 
-        if (timeLeft <= 0) {
-            clearInterval(countdown);
-            terminateExam("time_expired");
-        }
-    }, 1000);
+    let m = Math.floor(timeLeft / 60000);
+    let s = Math.floor((timeLeft % 60000) / 1000);
+    timerDisplay.innerHTML = m + ":" + (s < 10 ? "0" : "") + s;
+
+    if (timeLeft <= 0) {
+        clearInterval(countdown);
+        terminateExam("time_expired");
+    }
+}, 1000);
 
     // 3. UNIFIED TERMINATION
     function terminateExam(breachType) {
