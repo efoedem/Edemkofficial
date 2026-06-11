@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt  # 🛡️ Core bypass helper
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
-
+from math import radians, cos, sin, asin, sqrt
 # Binary document file parsers
 try:
     import openpyxl
@@ -26,48 +26,61 @@ from pypdf import PdfReader
 # ==========================================================
 
 
+
+def haversine(lon1, lat1, course):
+    # Pull dynamic coordinates from the course object
+    exam_lat = float(course.exam_latitude)
+    exam_lng = float(course.exam_longitude)
+
+    # Convert to radians
+    lon1, lat1, exam_lng, exam_lat = map(radians, [lon1, lat1, exam_lng, exam_lat])
+
+    dlon = exam_lng - lon1
+    dlat = exam_lat - lat1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(exam_lat) * sin(dlon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+    r = 6371000  # Earth radius in meters
+    return c * r
+
+
 @csrf_exempt
 def login_portal(request):
     if request.method == "POST":
-        lecturer_id = request.POST.get("lecturer_id")
         course_id = request.POST.get("course_id")
         index_number = request.POST.get("index_number", "").strip().upper()
+
+        # Capture Location
+        user_lat = float(request.POST.get("lat", 0))
+        user_lng = float(request.POST.get("lng", 0))
 
         try:
             course = get_object_or_404(Course, id=course_id)
 
-            # 🛡️ TIME GATEKEEPER (Added here)
+            # 1. Dynamic Server-Side Verification
+            distance = haversine(user_lng, user_lat, course)
+
+            # Use the buffer set by admin in the Course model
+            if distance > course.location_buffer_meters:
+                messages.error(request, f"Security Lockdown: Outside exam zone (Detected: {int(distance)}m).")
+                return redirect("login_portal")
+
+            # 2. TIME GATEKEEPER
             now = timezone.now()
             if now < course.start_time:
-                messages.error(request, f"Examination has not started. It begins at {course.start_time.strftime('%I:%M %p')}.")
+                messages.error(request, f"Starts at {course.start_time.strftime('%I:%M %p')}.")
                 return redirect("login_portal")
             if now > course.end_time:
                 messages.error(request, "Examination window has closed.")
                 return redirect("login_portal")
 
-            # 🚨 EXISTING SUBMISSION CHECK
-            already_submitted = StudentSubmission.objects.filter(index_number=index_number, course=course).exists()
-            if already_submitted:
-                messages.error(request, f"SECURITY LOCKOUT: Index Number {index_number} has an existing paper log.")
-                return redirect("login_portal")
-
-            # 2. Check if index_number is listed on the AllowedStudent roster
-            student = AllowedStudent.objects.filter(index_number=index_number, course=course).first()
-            if not student:
-                messages.error(request, f"Index Number {index_number} is not registered for this examination roster.")
-                return redirect("login_portal")
-
-            # Store verified state parameters
-            request.session['is_authenticated'] = True
-            request.session['student_name'] = student.full_name
-            request.session['index_number'] = index_number
-            request.session['course_id'] = course.id
-
-            return redirect("login_portal")
+            # ... (Existing auth logic) ...
 
         except Exception as e:
             messages.error(request, f"Authentication runtime error: {str(e)}")
             return redirect("login_portal")
+
+    # GET Request Logic
+    # ... (Keep your existing GET logic)
 
     # GET Request Logic
     lecturers = Lecturer.objects.all()

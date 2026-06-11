@@ -11,7 +11,7 @@
         .exam-header { background: #1e293b; color: white; padding: 15px 30px; display: flex; justify-content: space-between; z-index: 10; }
         .workspace-wrapper { display: flex; flex: 1; width: 100%; height: calc(100vh - 70px); overflow: hidden; }
         .scrollable-content { flex: 1; height: 100%; overflow-y: auto; padding: 30px; }
-        #video { width: 180px; position: fixed; top: 85px; right: 20px; border: 3px solid #ef4444; border-radius: 10px; z-index: 1000; background: #000; aspect-ratio: 3/4; object-fit: cover; }
+        #video { width: 180px; position: fixed; top: 85px; right: 20px; border: 3px solid #44adef; border-radius: 10px; z-index: 1000; background: #000; aspect-ratio: 3/4; object-fit: cover; }
         .timer-box { background: #ef4444; color: white; padding: 8px 16px; border-radius: 6px; font-weight: bold; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; }
         .question-block { margin-bottom: 30px; padding: 20px; border-left: 5px solid #2563eb; background: #f8fafc; }
@@ -77,7 +77,7 @@
     // 1. Ensure the path is correct and models are loaded
     await faceapi.nets.tinyFaceDetector.loadFromUri('/static/models');
     console.log("Models loaded!");
-
+timerDisplay
     const video = document.getElementById('video');
     const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
     video.srcObject = stream;
@@ -118,41 +118,31 @@
         }, 1000); // 1-second delay before starting the loop
     });
 }
-
-   // 2. TIMER LOGIC
-const storageKey = "exam_{{ course.id }}_{{ index_number }}_time_left";
-
-// Get saved time, but ONLY use it if it's greater than 0
-const savedTime = localStorage.getItem(storageKey);
-let timeLeft = (savedTime && parseInt(savedTime, 10) > 0)
-                ? parseInt(savedTime, 10)
-                : parseInt("{{ duration_ms|default:'0' }}", 10);
-
+// 2. DUAL-TRIGGER TIMER
 const timerDisplay = document.getElementById('timer');
-
-// Safety: If the page loads and the exam is already past the end time, kill it immediately
 const serverEndTime = new Date("{{ course.end_time|date:'Y-m-d H:i:s' }}").getTime();
-if (new Date().getTime() > serverEndTime) {
-    terminateExam("time_expired");
-}
+// Start with a countdown from Django's duration variable (in ms)
+let timeLeft = parseInt("{{ duration_ms|default:'0' }}", 10);
 
 const countdown = setInterval(() => {
+    const now = new Date().getTime();
+
+    // Trigger 1: Countdown reached zero
     timeLeft -= 1000;
 
-    // Persist only positive values
-    if (timeLeft > 0) {
-        localStorage.setItem(storageKey, timeLeft);
-    } else {
-        localStorage.removeItem(storageKey); // Clear it once finished
-    }
+    // Trigger 2: Server deadline reached
+    const timeUntilDeadline = serverEndTime - now;
 
-    let m = Math.floor(timeLeft / 60000);
-    let s = Math.floor((timeLeft % 60000) / 1000);
-    timerDisplay.innerHTML = m + ":" + (s < 10 ? "0" : "") + s;
-
-    if (timeLeft <= 0) {
+    // Logic: If either condition is true, end the exam
+    if (timeLeft <= 0 || timeUntilDeadline <= 0) {
         clearInterval(countdown);
         terminateExam("time_expired");
+    } else {
+        // UI Display (use the smaller of the two to be safe)
+        let displayTime = Math.min(timeLeft, timeUntilDeadline);
+        let m = Math.floor(displayTime / 60000);
+        let s = Math.floor((displayTime % 60000) / 1000);
+        timerDisplay.innerHTML = m + ":" + (s < 10 ? "0" : "") + s;
     }
 }, 1000);
 

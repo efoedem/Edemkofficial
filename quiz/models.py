@@ -30,32 +30,25 @@ class Course(models.Model):
     ]
 
     lecturer = models.ForeignKey(Lecturer, on_delete=models.CASCADE)
-    title = models.CharField(max_length=200)  # e.g., "SIGNALS AND SYSTEMS"
-    code = models.CharField(max_length=200)  # e.g., "ELNG 222"
+    title = models.CharField(max_length=200)
+    code = models.CharField(max_length=200)
+    assessment_type = models.CharField(max_length=20, choices=ASSESSMENT_TYPES, default='QUIZ')
 
-    # 🆕 NEW: Assessment Category Selector
-    assessment_type = models.CharField(
-        max_length=20,
-        choices=ASSESSMENT_TYPES,
-        default='QUIZ'  # Protects existing database entries during migration
-    )
-
-    exam_name = models.CharField(max_length=200, help_text="e.g., Quiz 1, Midsem, Project Phase 1")
+    exam_name = models.CharField(max_length=200, help_text="e.g., Quiz 1, Midsem")
     duration_minutes = models.IntegerField(default=30)
 
-    # Geofencing Parameters
-    latitude = models.FloatField()
-    longitude = models.FloatField()
-    radius_meters = models.FloatField(default=100)
+    # Cleaned up Geofencing Parameters
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, default=7.3320)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, default=-2.3120)
+    radius_meters = models.IntegerField(default=100)
 
     show_scores = models.BooleanField(default=False)
 
     # === DATETIME WINDOW CONTROLS ===
-    start_time = models.DateTimeField(default=timezone.now, help_text="When students can begin logging in.")
-    end_time = models.DateTimeField(default=timezone.now, help_text="When the entry portal closes completely.")
+    start_time = models.DateTimeField(default=timezone.now)
+    end_time = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        # Displays beautifully in Django Admin: "ELNG 222 - Midsem (Mid-Semester Examination)"
         return f"{self.code} - {self.exam_name} ({self.get_assessment_type_display()})"
 # ==========================================
 # 3. QUESTION MODEL (WITH BUILT-IN IMPORT NORMALIZER)
