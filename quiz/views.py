@@ -128,13 +128,15 @@ def get_courses(request):
     return JsonResponse([], safe=False)
 
 
-@csrf_exempt
+@@csrf_exempt
 def start_quiz(request):
+    # 1. Validate Session Existence
     student_name = request.session.get('student_name')
     index_number = request.session.get('index_number')
     course_id = request.session.get('course_id')
 
     if not student_name or not index_number or not course_id:
+        messages.error(request, "Session expired. Please login again.")
         return redirect('login_portal')
 
     if request.method == "POST":
@@ -143,23 +145,26 @@ def start_quiz(request):
         # 🛡️ TIME GATEKEEPER
         now = timezone.now()
         if now < course.start_time:
-            messages.error(request, "Examination has not started yet.")
+            messages.error(request, f"Examination begins at {course.start_time.strftime('%I:%M %p')}.")
             return redirect('login_portal')
         if now > course.end_time:
             messages.error(request, "Examination window has closed.")
             return redirect('login_portal')
 
-        # Prevent duplicate submissions
+        # 🛡️ Prevent duplicate submissions
         if StudentSubmission.objects.filter(index_number=index_number, course=course).exists():
             messages.error(request, "You have already submitted this paper.")
             return redirect('login_portal')
 
-        # Randomization Engine
+        # 2. Randomization Engine
         raw_questions = list(Question.objects.filter(course=course))
         random.shuffle(raw_questions)
 
         questions_data = []
+        question_ids = []  # For session tracking
+
         for q in raw_questions:
+            question_ids.append(q.id)
             if q.q_type == 'MCQ':
                 options = [{'val': 'A', 'text': q.option_a}, {'val': 'B', 'text': q.option_b},
                            {'val': 'C', 'text': q.option_c}, {'val': 'D', 'text': q.option_d}]
@@ -168,7 +173,10 @@ def start_quiz(request):
             else:
                 questions_data.append({'q': q, 'options': None})
 
+        # 3. Store metadata in session for secure verification on submit
         request.session['exam_initialized'] = True
+        request.session['exam_questions'] = question_ids
+
         context = {
             'course': course,
             'questions_data': questions_data,
@@ -177,16 +185,21 @@ def start_quiz(request):
             'duration_ms': course.duration_minutes * 60 * 1000
         }
         return render(request, 'quiz/exam.html', context)
+
+    # If user
     return redirect('login_portal')
 
 
 @csrf_exempt
 def submit_quiz(request):
     if request.method == "POST":
-        # 1. Capture basic identifiers from the POST request
-        course_id = request.POST.get('course_id')
-        index_number = request.POST.get('index_number', '000000').strip().upper()
-        full_name = request.POST.get('full_name', 'Unknown Student').strip()  # You were missing this!
+        # 1. Secure Session Retrieval
+        course_id = request.session.get('course_id')
+        index_number = request.session.get('index_number')
+        full_name = request.session.get('student_name', 'Unknown Student')
+
+        if not all([course_id, index_number]):
+            return HttpResponse("Unauthorized: Session data missing.", status=401)
 
         course_obj = get_object_or_404(Course, id=course_id)
 
@@ -194,18 +207,22 @@ def submit_quiz(request):
         if timezone.now() > (course_obj.end_time + timezone.timedelta(seconds=60)):
             return HttpResponse("Submission rejected: Examination window has closed.", status=403)
 
-        # 🔑 Capture breach flags
-        security_breach = request.POST.get('security_breach', 'false')
-
         # 🛡️ Duplicate submission check
         if StudentSubmission.objects.filter(index_number=index_number, course=course_obj).exists():
-            return HttpResponse("Form processing rejected: Duplicate paper submission detected.", status=403)
+            return HttpResponse("Form processing rejected: Duplicate submission.", status=403)
 
-        # 2. Process Answers
+        # 🔑 Capture security flags from hidden input in form
+        security_breach = request.POST.get('security_breach', 'false')
+
+        # 2. Process Answers using Session-stored IDs (if available) or DB
+        # This ensures we only grade questions the student was supposed to see
+        question_ids = request.session.get('exam_questions', [])
+        all_questions = Question.objects.filter(id__in=question_ids) if question_ids else Question.objects.filter(
+            course=course_obj)
+
         answers = {key: value for key, value in request.POST.items() if key.startswith('q')}
-        all_questions = Question.objects.filter(course=course_obj)
-
         correct_count = 0
+
         for q in all_questions:
             submitted_val = answers.get(f'q{q.id}')
             if submitted_val and str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
@@ -213,10 +230,10 @@ def submit_quiz(request):
 
         # 🛡️ SYSTEM INTEGRITY LOGGING
         display_name = full_name
-        if security_breach in ["true", "tab_switch"]:
-            display_name += " [⚠️ TERMINATED: TAB SWITCH/WINDOW BLUR]"
-        elif security_breach == "split_screen":
-            display_name += " [⚠️ TERMINATED: SPLIT-SCREEN LAYOUT DETECTED]"
+        is_breached = security_breach in ["true", "tab_switch", "split_screen"]
+
+        if is_breached:
+            display_name += f" [⚠️ TERMINATED: {security_breach.upper()}]"
 
         StudentSubmission.objects.create(
             student_name=display_name,
@@ -226,10 +243,11 @@ def submit_quiz(request):
             score=float(correct_count)
         )
 
+        # Finalize status
         AllowedStudent.objects.filter(index_number=index_number, course=course_obj).update(has_taken_exam=True)
-        request.session.flush()
 
-        is_breached = security_breach in ["true", "tab_switch", "split_screen"]
+        # Clear exam session
+        request.session.flush()
 
         return render(request, 'quiz/submitted.html', {
             'student_name': full_name,
