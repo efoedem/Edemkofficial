@@ -73,26 +73,18 @@ def login_portal(request):
                 messages.error(request, "Examination window has closed.")
                 return redirect("login_portal")
 
-            # 3. SUCCESS: Set Session and Redirect to Exam
-            # Replace 'AllowedStudent' with your actual Student model
-            student = AllowedStudent.objects.filter(index_number=index_number, course=course).first()
-            if student:
-                request.session['is_authenticated'] = True
-                request.session['student_name'] = student.full_name
-                request.session['index_number'] = index_number
-                request.session['course_id'] = course.id
+            full_name = request.POST.get("full_name", "Anonymous Student").strip()
 
-                # IMPORTANT: Redirect to the actual exam/quiz page, NOT the login page
-                return redirect('start_quiz')
-            else:
-                messages.error(request, "Student not found in this course list.")
-                return redirect("login_portal")
+            request.session['is_authenticated'] = True
+            request.session['student_name'] = full_name
+            request.session['index_number'] = index_number
+            request.session['course_id'] = course.id
+
+            return redirect('start_quiz')
 
         except Exception as e:
             messages.error(request, f"Authentication error: {str(e)}")
             return redirect("login_portal")
-
-    # ... (Keep your existing GET logic here)
 
     # GET Request Logic
     # ... (Keep your existing GET logic)
@@ -194,70 +186,41 @@ def start_quiz(request):
 @csrf_exempt
 def submit_quiz(request):
     if request.method == "POST":
-        # 1. Secure Session Retrieval
         course_id = request.session.get('course_id')
         index_number = request.session.get('index_number')
-        full_name = request.session.get('student_name', 'Unknown Student')
+        full_name = request.session.get('student_name')
 
         if not all([course_id, index_number]):
-            return HttpResponse("Unauthorized: Session data missing.", status=401)
+            return HttpResponse("Unauthorized", status=401)
 
         course_obj = get_object_or_404(Course, id=course_id)
 
-        # 🛡️ SUBMISSION GATEKEEPER
-        if timezone.now() > (course_obj.end_time + timezone.timedelta(seconds=60)):
-            return HttpResponse("Submission rejected: Examination window has closed.", status=403)
-
-        # 🛡️ Duplicate submission check
+        # 🛡️ DUPLICATE SUBMISSION CHECK
         if StudentSubmission.objects.filter(index_number=index_number, course=course_obj).exists():
             return HttpResponse("Form processing rejected: Duplicate submission.", status=403)
 
-        # 🔑 Capture security flags from hidden input in form
-        security_breach = request.POST.get('security_breach', 'false')
-
-        # 2. Process Answers using Session-stored IDs (if available) or DB
-        # This ensures we only grade questions the student was supposed to see
+        # Process grading
         question_ids = request.session.get('exam_questions', [])
         all_questions = Question.objects.filter(id__in=question_ids) if question_ids else Question.objects.filter(
             course=course_obj)
-
         answers = {key: value for key, value in request.POST.items() if key.startswith('q')}
-        correct_count = 0
 
-        for q in all_questions:
-            submitted_val = answers.get(f'q{q.id}')
-            if submitted_val and str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
-                correct_count += 1
-        # 🛡️ SYSTEM INTEGRITY LOGGING
-        display_name = full_name
-        is_breached = security_breach in ["true", "tab_switch", "split_screen"]
+        correct_count = sum(1 for q in all_questions if
+                            str(answers.get(f'q{q.id}', '')).strip().upper() == str(q.correct_answer).strip().upper())
 
-        if is_breached:
-            display_name += f" [⚠️ TERMINATED: {security_breach.upper()}]"
-
-        # SAVING LOGIC:
+        # Save submission
         StudentSubmission.objects.create(
-            student_name=display_name,
+            student_name=full_name,
             index_number=index_number,
             course=course_obj,
-            submitted_answers=answers,  # Directly pass the dictionary here
+            submitted_answers=answers,
             score=float(correct_count)
         )
 
-        # Finalize status
-        AllowedStudent.objects.filter(index_number=index_number, course=course_obj).update(has_taken_exam=True)
-
-        # Clear exam session
         request.session.flush()
-
-        return render(request, 'quiz/submitted.html', {
-            'student_name': full_name,
-            'score': int(correct_count),
-            'show_score': False if is_breached else course_obj.show_scores
-        })
+        return render(request, 'quiz/submitted.html', {'score': int(correct_count)})
 
     return redirect('login_portal')
-
 
 # ==========================================================
 #             ADVANCED BULK QUESTIONS IMPORT ENGINE
