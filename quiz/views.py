@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import random
+from django.contrib.messages import get_messages
 from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import render, redirect, get_object_or_404
@@ -150,6 +151,8 @@ def start_quiz(request):
 
         # 🛡️ Prevent duplicate submissions
         if StudentSubmission.objects.filter(index_number=index_number, course=course).exists():
+            storage = get_messages(request)
+            for _ in storage: pass
             messages.error(request, "You have already submitted this paper.")
             return redirect('login_portal')
 
