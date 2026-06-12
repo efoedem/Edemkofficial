@@ -44,41 +44,55 @@ def haversine(lon1, lat1, course):
     c = 2 * asin(sqrt(a))
     r = 6371000  # Earth radius in meters
     return c * r
+
+
 @csrf_exempt
 def login_portal(request):
     if request.method == "POST":
         course_id = request.POST.get("course_id")
         index_number = request.POST.get("index_number", "").strip().upper()
 
-        # Capture Location
         user_lat = float(request.POST.get("lat", 0))
         user_lng = float(request.POST.get("lng", 0))
 
         try:
             course = get_object_or_404(Course, id=course_id)
 
-            # 1. Dynamic Server-Side Verification
+            # 1. Location Check
             distance = haversine(user_lng, user_lat, course)
-
-            # Use the buffer set by admin in the Course model
             if distance > course.radius_meters:
                 messages.error(request, f"Security Lockdown: Outside exam zone (Detected: {int(distance)}m).")
                 return redirect("login_portal")
 
-            # 2. TIME GATEKEEPER
+            # 2. Time Check
             now = timezone.now()
             if now < course.start_time:
-                messages.error(request, f"Starts at {course.start_time.strftime('%I:%M %p')}.")
+                messages.error(request, f"Examination begins at {course.start_time.strftime('%I:%M %p')}.")
                 return redirect("login_portal")
             if now > course.end_time:
                 messages.error(request, "Examination window has closed.")
                 return redirect("login_portal")
 
-            # ... (Existing auth logic) ...
+            # 3. SUCCESS: Set Session and Redirect to Exam
+            # Replace 'AllowedStudent' with your actual Student model
+            student = AllowedStudent.objects.filter(index_number=index_number, course=course).first()
+            if student:
+                request.session['is_authenticated'] = True
+                request.session['student_name'] = student.full_name
+                request.session['index_number'] = index_number
+                request.session['course_id'] = course.id
+
+                # IMPORTANT: Redirect to the actual exam/quiz page, NOT the login page
+                return redirect('exam_page_url_name')
+            else:
+                messages.error(request, "Student not found in this course list.")
+                return redirect("login_portal")
 
         except Exception as e:
-            messages.error(request, f"Authentication runtime error: {str(e)}")
+            messages.error(request, f"Authentication error: {str(e)}")
             return redirect("login_portal")
+
+    # ... (Keep your existing GET logic here)
 
     # GET Request Logic
     # ... (Keep your existing GET logic)
