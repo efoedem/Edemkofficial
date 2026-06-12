@@ -26,11 +26,14 @@ from pypdf import PdfReader
 # ==========================================================
 
 
+from math import radians, cos, sin, asin, sqrt
+
 
 def haversine(lon1, lat1, course):
-    # Pull dynamic coordinates from the course object
-    exam_lat = float(course.exam_latitude)
-    exam_lng = float(course.exam_longitude)
+    # CORRECTED: Using the field names defined in your models.py
+    # course.latitude and course.longitude
+    exam_lat = float(course.latitude)
+    exam_lng = float(course.longitude)
 
     # Convert to radians
     lon1, lat1, exam_lng, exam_lat = map(radians, [lon1, lat1, exam_lng, exam_lat])
@@ -41,8 +44,6 @@ def haversine(lon1, lat1, course):
     c = 2 * asin(sqrt(a))
     r = 6371000  # Earth radius in meters
     return c * r
-
-
 @csrf_exempt
 def login_portal(request):
     if request.method == "POST":
