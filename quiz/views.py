@@ -83,7 +83,7 @@ def login_portal(request):
                 request.session['course_id'] = course.id
 
                 # IMPORTANT: Redirect to the actual exam/quiz page, NOT the login page
-                return redirect('exam_page_url_name')
+                return redirect('start_quiz')
             else:
                 messages.error(request, "Student not found in this course list.")
                 return redirect("login_portal")
