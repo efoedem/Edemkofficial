@@ -131,6 +131,7 @@ def get_courses(request):
 @csrf_exempt
 def start_quiz(request):
     # 1. Validate Session Existence
+    print(f"Session Data: {request.session.items()}")
     student_name = request.session.get('student_name')
     index_number = request.session.get('index_number')
     course_id = request.session.get('course_id')
