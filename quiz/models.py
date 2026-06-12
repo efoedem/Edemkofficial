@@ -40,7 +40,7 @@ class Course(models.Model):
     # Cleaned up Geofencing Parameters
     latitude = models.DecimalField(max_digits=9, decimal_places=6, default=7.3320)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, default=-2.3120)
-    radius_meters = models.IntegerField(default=100)
+    radius_meters = models.FloatField(default=100)
 
     show_scores = models.BooleanField(default=False)
 

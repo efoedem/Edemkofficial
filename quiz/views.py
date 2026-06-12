@@ -61,7 +61,7 @@ def login_portal(request):
             distance = haversine(user_lng, user_lat, course)
 
             # Use the buffer set by admin in the Course model
-            if distance > course.location_buffer_meters:
+            if distance > course.radius_meters:
                 messages.error(request, f"Security Lockdown: Outside exam zone (Detected: {int(distance)}m).")
                 return redirect("login_portal")
 
