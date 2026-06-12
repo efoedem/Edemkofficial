@@ -120,6 +120,10 @@ def get_courses(request):
     return JsonResponse([], safe=False)
 
 
+def logout_portal(request):
+    request.session.flush() # This clears everything, allowing them to login again
+    return redirect('login_portal')
+
 @csrf_exempt
 def start_quiz(request):
     # 1. Validate Session Existence
