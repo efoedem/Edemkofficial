@@ -98,11 +98,17 @@ class Question(models.Model):
 # ==========================================
 # 4. STUDENT SUBMISSION MODEL
 # ==========================================
+# models.py
+
+# ... (Existing code for Lecturer, Course, Question, etc.)
+
 class StudentSubmission(models.Model):
-    student_name = models.CharField(max_length=255)  # Increased length for longer names
+    student_name = models.CharField(max_length=255)
     index_number = models.CharField(max_length=20)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    submitted_answers = models.JSONField(null=True, blank=True)  # CHANGED: Use JSONField for better data integrity
+
+    # JSONField allows you to store the answer dictionary directly
+    submitted_answers = models.JSONField(null=True, blank=True)
     score = models.FloatField(default=0.0)
     submitted_at = models.DateTimeField(auto_now_add=True)
 

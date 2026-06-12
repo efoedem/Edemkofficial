@@ -227,7 +227,6 @@ def submit_quiz(request):
             submitted_val = answers.get(f'q{q.id}')
             if submitted_val and str(submitted_val).strip().upper() == str(q.correct_answer).strip().upper():
                 correct_count += 1
-
         # 🛡️ SYSTEM INTEGRITY LOGGING
         display_name = full_name
         is_breached = security_breach in ["true", "tab_switch", "split_screen"]
@@ -235,11 +234,12 @@ def submit_quiz(request):
         if is_breached:
             display_name += f" [⚠️ TERMINATED: {security_breach.upper()}]"
 
+        # SAVING LOGIC:
         StudentSubmission.objects.create(
             student_name=display_name,
             index_number=index_number,
             course=course_obj,
-            submitted_answers=json.dumps(answers),
+            submitted_answers=answers,  # Directly pass the dictionary here
             score=float(correct_count)
         )
 
@@ -445,6 +445,8 @@ def download_word_template(request):
     response['Content-Disposition'] = 'attachment; filename="question_import_blueprint.docx"'
     doc.save(response)
     return response
+
+
 
 
 # ==========================================================
