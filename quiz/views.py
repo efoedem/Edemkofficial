@@ -128,7 +128,7 @@ def get_courses(request):
     return JsonResponse([], safe=False)
 
 
-@@csrf_exempt
+@csrf_exempt
 def start_quiz(request):
     # 1. Validate Session Existence
     student_name = request.session.get('student_name')

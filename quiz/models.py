@@ -49,8 +49,7 @@ class Course(models.Model):
     end_time = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return f"{self.code} - {self.exam_name} ({self.get_assessment_type_display()})"
-# ==========================================
+        return f"{self.code} - {self.exam_name}"
 # 3. QUESTION MODEL (WITH BUILT-IN IMPORT NORMALIZER)
 # ==========================================
 class Question(models.Model):
@@ -100,15 +99,15 @@ class Question(models.Model):
 # 4. STUDENT SUBMISSION MODEL
 # ==========================================
 class StudentSubmission(models.Model):
-    student_name = models.CharField(max_length=100)
+    student_name = models.CharField(max_length=255)  # Increased length for longer names
     index_number = models.CharField(max_length=20)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    submitted_answers = models.TextField(null=True, blank=True)
+    submitted_answers = models.JSONField(null=True, blank=True)  # CHANGED: Use JSONField for better data integrity
     score = models.FloatField(default=0.0)
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.student_name} - {self.course.code}"
+        return f"{self.index_number} - {self.course.code}"
 
 
 # ==========================================
