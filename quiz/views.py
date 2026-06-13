@@ -144,7 +144,7 @@ def submit_assignment(request):
         messages.success(request, "Assignment submitted successfully!")
         return render(request, 'success.html')
 
-    return render(request, 'submit.html')
+    return render(request, 'quiz/submit.html', {'courses': Course.objects.all()})
 
 @csrf_exempt
 def start_quiz(request):
