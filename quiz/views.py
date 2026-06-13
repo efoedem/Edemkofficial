@@ -11,11 +11,10 @@ from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt  # 🛡️ Core bypass helper
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
-from math import radians, cos, sin, asin, sqrt
-# Binary document file parsers
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from .models import StudentSubmission
+
+
+
+
 try:
     import openpyxl
 except ImportError:
@@ -132,20 +131,28 @@ def logout_portal(request):
 
 def submit_assignment(request):
     if request.method == 'POST':
-        # Simply take the data from the form
-        courses = Course.objects.filter(assessment_type='ASSIGNMENT')
+        # Get the uploaded file
+        file = request.FILES.get('file')
+
+        # Create the submission instance
         submission = StudentSubmission(
             student_name=request.POST.get('student_name'),
             index_number=request.POST.get('index_number'),
-            course_id=request.POST.get('course_id'),  # Ensure you pass course_id in your form
-            submission_type='ASSIGNMENT',  # Hardcoded as an assignment
-            assignment_file=request.FILES.get('file')
+            course_id=request.POST.get('course_id'),
+            submission_type='ASSIGNMENT',
+            # Read file into binary data and store name
+            file_data=file.read() if file else None,
+            file_name=file.name if file else None
         )
         submission.save()
-        messages.success(request, "Assignment submitted successfully!")
-        return render(request, 'success.html')
 
-    return render(request, 'quiz/submit.html', {'courses': Course.objects.all()})
+        messages.success(request, "Assignment submitted successfully!")
+        return render(request, 'quiz/submitted.html')  # Ensure you have this template
+
+    # Only show courses that are 'ASSIGNMENT' type in the dropdown
+    courses = Course.objects.filter(assessment_type='ASSIGNMENT')
+    return render(request, 'quiz/submit.html', {'courses': courses})
+
 
 @csrf_exempt
 def start_quiz(request):

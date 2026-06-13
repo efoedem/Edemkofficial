@@ -2,6 +2,10 @@ import json
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.db import models
+from django.utils import timezone
+
+
 
 
 # ==========================================
@@ -101,34 +105,31 @@ class Question(models.Model):
 # models.py
 
 # ... (Existing code for Lecturer, Course, Question, etc.)
-
-from django.db import models
-
 class StudentSubmission(models.Model):
-    student_name = models.CharField(max_length=255)
-    index_number = models.CharField(max_length=20)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    submitted_answers = models.JSONField(null=True, blank=True)
-    score = models.FloatField(default=0.0)
-    submitted_at = models.DateTimeField(auto_now_add=True)
-    file_data = models.BinaryField(null=True, blank=True)
-
-    # --- UPDATES START HERE ---
     SUBMISSION_CHOICES = [
         ('QUIZ', 'Quiz'),
         ('ASSIGNMENT', 'Assignment'),
     ]
+
+    student_name = models.CharField(max_length=255)
+    index_number = models.CharField(max_length=20)
+    course = models.ForeignKey('Course', on_delete=models.CASCADE)
+    submitted_answers = models.JSONField(null=True, blank=True)
+    score = models.FloatField(default=0.0)
+    submitted_at = models.DateTimeField(auto_now_add=True)
     submission_type = models.CharField(
         max_length=10,
         choices=SUBMISSION_CHOICES,
         default='QUIZ'
     )
-    assignment_file = models.FileField(upload_to='submissions/', blank=True, null=True)
-    # --- UPDATES END HERE ---
+
+    # Store the actual file data in the database (BLOB)
+    # This prevents the Read-only file system error on Vercel
+    file_data = models.BinaryField(null=True, blank=True)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return f"{self.index_number} - {self.course.code} ({self.submission_type})"
-
 # ==========================================
 # 5. ENFORCED ACCESS CONTROL MODEL (FIXED ALIGNMENT)
 # ==========================================
