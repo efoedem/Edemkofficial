@@ -13,6 +13,9 @@ from django.views.decorators.csrf import csrf_exempt  # 🛡️ Core bypass help
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
 from math import radians, cos, sin, asin, sqrt
 # Binary document file parsers
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import StudentSubmission
 try:
     import openpyxl
 except ImportError:
@@ -124,6 +127,24 @@ def get_courses(request):
 def logout_portal(request):
     request.session.flush() # This clears everything, allowing them to login again
     return redirect('login_portal')
+
+
+
+def submit_assignment(request):
+    if request.method == 'POST':
+        # Simply take the data from the form
+        submission = StudentSubmission(
+            student_name=request.POST.get('student_name'),
+            index_number=request.POST.get('index_number'),
+            course_id=request.POST.get('course_id'),  # Ensure you pass course_id in your form
+            submission_type='ASSIGNMENT',  # Hardcoded as an assignment
+            assignment_file=request.FILES.get('file')
+        )
+        submission.save()
+        messages.success(request, "Assignment submitted successfully!")
+        return render(request, 'success.html')
+
+    return render(request, 'submit.html')
 
 @csrf_exempt
 def start_quiz(request):

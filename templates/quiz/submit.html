@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Submit Assignment</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; padding: 50px; background: #f4f7f6; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { color: #333; margin-top: 0; }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background: #417690; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #205067; }
+        .help-text { font-size: 0.8rem; color: #666; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Assignment Submission</h2>
+    <p class="help-text">Please fill in your details and upload your assignment file.</p>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="text" name="student_name" placeholder="Full Name" required>
+        <input type="text" name="index_number" placeholder="Index Number" required>
+
+        <select name="course_id" required>
+            <option value="" disabled selected>Select your Course</option>
+            {% for course in courses %}
+                <option value="{{ course.id }}">{{ course.name }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="file" class="help-text">Upload Assignment File:</label>
+        <input type="file" name="file" id="file" required>
+
+        <button type="submit">Submit Assignment</button>
+    </form>
+</div>
+
+</body>
+</html>
