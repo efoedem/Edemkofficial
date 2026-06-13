@@ -2,7 +2,8 @@ import csv
 from django.http import HttpResponse
 from django.contrib import admin
 from .models import Lecturer, Course, Question, StudentSubmission, AllowedStudent
-
+from django.utils.html import format_html
+from django.urls import reverse
 
 # ==========================================
 # 1. QUESTION ADMIN
@@ -27,11 +28,16 @@ class QuestionAdmin(admin.ModelAdmin):
 # ==========================================
 @admin.register(StudentSubmission)
 class StudentSubmissionAdmin(admin.ModelAdmin):
-    list_display = ('student_name', 'index_number', 'course', 'get_exam_name', 'score', 'submitted_at')
+    list_display = ('student_name', 'index_number', 'course', 'get_exam_name', 'score', 'submitted_at', 'download_link')
     list_filter = ('course', 'course__exam_name', 'submitted_at')
     date_hierarchy = 'submitted_at'
     search_fields = ('student_name', 'index_number')
     actions = ['export_to_csv']
+
+    def download_link(self, obj):
+        if obj.file_data:
+            return format_html('<a href="/download/{}/">Download File</a>', obj.id)
+        return "No File"
 
     def get_exam_name(self, obj):
         return obj.course.exam_name

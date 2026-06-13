@@ -258,6 +258,19 @@ def submit_quiz(request):
 
     return redirect('login_portal')
 
+
+def download_submission(request, submission_id):
+    submission = get_object_or_404(StudentSubmission, pk=submission_id)
+
+    # Check if there is actually data
+    if not submission.file_data:
+        return HttpResponse("No file found for this submission.", status=404)
+
+    # Return the file as a downloadable response
+    response = HttpResponse(submission.file_data, content_type='application/octet-stream')
+    response['Content-Disposition'] = f'attachment; filename="{submission.file_name}"'
+    return response
+
 # ==========================================================
 #             ADVANCED BULK QUESTIONS IMPORT ENGINE
 # ==========================================================
