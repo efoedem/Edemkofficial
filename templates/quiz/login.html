@@ -184,7 +184,9 @@
     <label>Index Number</label>
     <input type="text" id="index_number_input" name="index_number" placeholder="Enter ID" required autocomplete="off">
 </div>
-
+<div class="navigation-links">
+    <a href="{% url 'submit_assignment' %}">Click here to submit an Assignment</a>
+</div>
                 <div id="gps_feedback" class="gps-status">Acquiring satellite location fix...</div>
 
                 <button type="submit" id="start_btn" disabled>Waiting for GPS Fix...</button>

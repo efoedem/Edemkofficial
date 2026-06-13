@@ -65,5 +65,6 @@ urlpatterns = [
 # 🎯 UNIQUE ROUTE: Moves out of the admin/ namespace to prevent routing hijacks
     path('bulk-upload-students/', views.upload_allowed_students, name='upload_allowed_students'),
     path('logout/', views.logout_portal, name='logout'),
+    path('submit/', views.submit_assignment, name='submit_assignment'),
 
 ]
