@@ -1,7 +1,16 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/static/(.*)", "destination": "/staticfiles/$1" },
-    { "source": "/(.*)", "destination": "QUIZ1/wsgi.py" }
+  "builds": [
+    {
+      "src": "QUIZ1/wsgi.py",
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "50mb" }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "QUIZ1/wsgi.py"
+    }
   ]
 }
