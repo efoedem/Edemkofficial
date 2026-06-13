@@ -28,7 +28,8 @@ class QuestionAdmin(admin.ModelAdmin):
 @admin.register(StudentSubmission)
 class StudentSubmissionAdmin(admin.ModelAdmin):
     list_display = ('student_name', 'index_number', 'course', 'get_exam_name', 'score', 'submitted_at')
-    list_filter = ('course', 'course__exam_name')
+    list_filter = ('course', 'course__exam_name', 'submitted_at')
+    date_hierarchy = 'submitted_at'
     search_fields = ('student_name', 'index_number')
     actions = ['export_to_csv']
 
