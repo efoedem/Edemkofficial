@@ -1,6 +1,11 @@
+# Python Environment
 .venv/
 venv/
 __pycache__/
 *.pyc
+
+# IDE Settings
 .idea/
+
+# Database (Keep this to prevent pushing your local data)
 db.sqlite3
