@@ -66,5 +66,6 @@ urlpatterns = [
     path('bulk-upload-students/', views.upload_allowed_students, name='upload_allowed_students'),
     path('logout/', views.logout_portal, name='logout'),
     path('submit/', views.submit_assignment, name='submit_assignment'),
+path('download/<int:submission_id>/', download_submission, name='download_submission'),
 
 ]

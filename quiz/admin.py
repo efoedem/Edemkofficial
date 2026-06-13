@@ -25,19 +25,36 @@ class QuestionAdmin(admin.ModelAdmin):
 
 # ==========================================
 # 2. STUDENT SUBMISSION ADMIN
-# ==========================================
 @admin.register(StudentSubmission)
 class StudentSubmissionAdmin(admin.ModelAdmin):
-    list_display = ('student_name', 'index_number', 'course', 'get_exam_name', 'score', 'submitted_at', 'download_link')
+    # Added your custom fields and the download_link
+    list_display = (
+        'student_name',
+        'index_number',
+        'course',
+        'get_exam_name',
+        'score',
+        'submitted_at',
+        'download_link'
+    )
     list_filter = ('course', 'course__exam_name', 'submitted_at')
     date_hierarchy = 'submitted_at'
     search_fields = ('student_name', 'index_number')
     actions = ['export_to_csv']
 
+    def get_exam_name(self, obj):
+        return obj.course.exam_name
+
+    get_exam_name.short_description = 'Exam Name'
+
     def download_link(self, obj):
         if obj.file_data:
-            return format_html('<a href="/download/{}/">Download File</a>', obj.id)
+            # Matches the 'download_submission' name in urls.py
+            url = reverse('download_submission', args=[obj.id])
+            return format_html('<a href="{}">Download File</a>', url)
         return "No File"
+
+    download_link.short_description = "File"
 
     def get_exam_name(self, obj):
         return obj.course.exam_name
