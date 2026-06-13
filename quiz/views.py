@@ -266,11 +266,17 @@ def download_submission(request, submission_id):
     if not submission.file_data:
         return HttpResponse("No file found for this submission.", status=404)
 
-    # Return the file as a downloadable response
-    response = HttpResponse(submission.file_data, content_type='application/octet-stream')
-    response['Content-Disposition'] = f'attachment; filename="{submission.file_name}"'
-    return response
-
+    try:
+        # Return the file data
+        response = HttpResponse(submission.file_data, content_type='application/octet-stream')
+        # Use a default filename if file_name is missing
+        filename = submission.file_name if submission.file_name else "submission.bin"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        # If something else goes wrong, this will show in the Vercel logs
+        print(f"Error during download: {e}")
+        return HttpResponse("An error occurred during download.", status=500)
 # ==========================================================
 #             ADVANCED BULK QUESTIONS IMPORT ENGINE
 # ==========================================================
