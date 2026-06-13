@@ -25,11 +25,11 @@
         <input type="text" name="index_number" placeholder="Index Number" required>
 
         <select name="course_id" required>
-            <option value="" disabled selected>Select your Course</option>
-            {% for course in courses %}
-                <option value="{{ course.id }}">{{ course.name }}</option>
-            {% endfor %}
-        </select>
+    <option value="" disabled selected>Select your Course</option>
+    {% for course in courses %}
+        <option value="{{ course.id }}">{{ course.title }} ({{ course.code }})</option>
+    {% endfor %}
+</select>
 
         <label for="file" class="help-text">Upload Assignment File:</label>
         <input type="file" name="file" id="file" required>

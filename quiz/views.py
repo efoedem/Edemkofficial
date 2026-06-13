@@ -133,6 +133,7 @@ def logout_portal(request):
 def submit_assignment(request):
     if request.method == 'POST':
         # Simply take the data from the form
+        courses = Course.objects.filter(assessment_type='ASSIGNMENT')
         submission = StudentSubmission(
             student_name=request.POST.get('student_name'),
             index_number=request.POST.get('index_number'),
