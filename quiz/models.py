@@ -111,6 +111,7 @@ class StudentSubmission(models.Model):
     submitted_answers = models.JSONField(null=True, blank=True)
     score = models.FloatField(default=0.0)
     submitted_at = models.DateTimeField(auto_now_add=True)
+    file_data = models.BinaryField(null=True, blank=True)
 
     # --- UPDATES START HERE ---
     SUBMISSION_CHOICES = [
