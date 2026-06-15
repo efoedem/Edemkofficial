@@ -129,7 +129,9 @@ class StudentSubmission(models.Model):
 
     # Use CloudinaryField to store the file URL instead of the file itself
     # This prevents the 413 Payload Too Large error
-    file = CloudinaryField('assignment', null=True, blank=True)
+    # Update this line in your models.py
+    # Change this line in models.py
+    file = CloudinaryField('assignment', resource_type='auto', folder='assignments')
 
     class Meta:
         # Ensures a student can only have one submission per course
