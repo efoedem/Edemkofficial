@@ -19,17 +19,28 @@
     <h2>Assignment Submission</h2>
     <p class="help-text">Please fill in your details and upload your assignment file.</p>
 
-    <form method="post" enctype="multipart/form-data">
+    {% if messages %}
+        <div class="message-container" style="margin-bottom: 20px;">
+            {% for message in messages %}
+                <div class="alert" style="padding: 10px; margin-bottom: 5px; border: 1px solid #ccc;
+                     background-color: {% if 'error' in message.tags %}#f8d7da{% else %}#d4edda{% endif %};">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="text" name="student_name" placeholder="Full Name" required>
         <input type="text" name="index_number" placeholder="Index Number" required>
 
         <select name="course_id" required>
-    <option value="" disabled selected>Select your Course</option>
-    {% for course in courses %}
-        <option value="{{ course.id }}">{{ course.title }} ({{ course.code }})</option>
-    {% endfor %}
-</select>
+            <option value="" disabled selected>Select your Course</option>
+            {% for course in courses %}
+                <option value="{{ course.id }}">{{ course.title }} ({{ course.code }})</option>
+            {% endfor %}
+        </select>
 
         <label for="file" class="help-text">Upload Assignment File:</label>
         <input type="file" name="file" id="file" required>
@@ -37,6 +48,5 @@
         <button type="submit">Submit Assignment</button>
     </form>
 </div>
-
 </body>
 </html>

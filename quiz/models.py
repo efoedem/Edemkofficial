@@ -112,7 +112,7 @@ class StudentSubmission(models.Model):
     ]
 
     student_name = models.CharField(max_length=255)
-    index_number = models.CharField(max_length=20)
+    index_number = models.CharField(max_length=10)
     course = models.ForeignKey('Course', on_delete=models.CASCADE)
     submitted_answers = models.JSONField(null=True, blank=True)
     score = models.FloatField(default=0.0)
@@ -124,9 +124,13 @@ class StudentSubmission(models.Model):
     )
 
     # Store the actual file data in the database (BLOB)
-    # This prevents the Read-only file system error on Vercel
     file_data = models.BinaryField(null=True, blank=True)
     file_name = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        # This constraint ensures one unique submission per student per course
+        # for ASSIGNMENT types only
+        unique_together = ('index_number', 'course')
 
     def __str__(self):
         return f"{self.index_number} - {self.course.code} ({self.submission_type})"
