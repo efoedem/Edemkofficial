@@ -47,6 +47,17 @@ INSTALLED_APPS = [
     'quiz',
 ]
 
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'dgwbmaes6',
+    'API_KEY': '882256938935646',
+    'API_SECRET': '0Th3biJbigFGP-9ALPVyAdVir9w',
+}
+
+# This tells Django to send all file uploads to Cloudinary instead of your server/DB
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # <-- Handles static assets on Vercel

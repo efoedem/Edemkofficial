@@ -4,6 +4,9 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db import models
 from django.utils import timezone
+# ... (Existing code for Lecturer, Course, Question, etc.)
+from django.db import models
+from cloudinary.models import CloudinaryField
 
 
 
@@ -104,7 +107,8 @@ class Question(models.Model):
 # ==========================================
 # models.py
 
-# ... (Existing code for Lecturer, Course, Question, etc.)
+
+
 class StudentSubmission(models.Model):
     SUBMISSION_CHOICES = [
         ('QUIZ', 'Quiz'),
@@ -123,13 +127,12 @@ class StudentSubmission(models.Model):
         default='QUIZ'
     )
 
-    # Store the actual file data in the database (BLOB)
-    file_data = models.BinaryField(null=True, blank=True)
-    file_name = models.CharField(max_length=255, null=True, blank=True)
+    # Use CloudinaryField to store the file URL instead of the file itself
+    # This prevents the 413 Payload Too Large error
+    file = CloudinaryField('assignment', null=True, blank=True)
 
     class Meta:
-        # This constraint ensures one unique submission per student per course
-        # for ASSIGNMENT types only
+        # Ensures a student can only have one submission per course
         unique_together = ('index_number', 'course')
 
     def __str__(self):

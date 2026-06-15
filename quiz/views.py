@@ -127,43 +127,41 @@ def logout_portal(request):
     request.session.flush() # This clears everything, allowing them to login again
     return redirect('login_portal')
 
-
-
 def submit_assignment(request):
-    # 1. Fetch courses ALWAYS, so they are available for the dropdown
+    # Fetch courses for the dropdown
     courses = Course.objects.filter(assessment_type='ASSIGNMENT')
 
     if request.method == 'POST':
         student_name = request.POST.get('student_name')
         index_number = request.POST.get('index_number')
-        course_id = request.POST.get('course_id') # Changed from assignment_id to match your previous code
-        file = request.FILES.get('file')
+        course_id = request.POST.get('course_id')
+        uploaded_file = request.FILES.get('file')
 
-        # 2. CHECK FOR DUPLICATE SUBMISSION
+        # 1. CHECK FOR DUPLICATE SUBMISSION
         if StudentSubmission.objects.filter(index_number=index_number, course_id=course_id).exists():
             messages.error(request, "You have already submitted an assignment for this course.")
             return render(request, 'quiz/submit.html', {'courses': courses})
 
-        # 3. VALIDATE FILE
-        if not file:
+        # 2. VALIDATE FILE PRESENCE
+        if not uploaded_file:
             messages.error(request, "Please select a file to upload.")
             return render(request, 'quiz/submit.html', {'courses': courses})
 
-        # 4. SAVE SUBMISSION
+        # 3. SAVE SUBMISSION
+        # CloudinaryField handles the upload automatically when assigned
         submission = StudentSubmission(
             student_name=student_name,
             index_number=index_number,
             course_id=course_id,
             submission_type='ASSIGNMENT',
-            file_data=file.read(),
-            file_name=file.name
+            file=uploaded_file  # Assign the file object directly
         )
         submission.save()
 
         messages.success(request, "Assignment submitted successfully!")
         return render(request, 'quiz/submitted.html')
 
-    # 5. RENDER PAGE FOR GET REQUESTS
+    # Initial page load
     return render(request, 'quiz/submit.html', {'courses': courses})
 
 
