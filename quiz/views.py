@@ -130,27 +130,40 @@ def logout_portal(request):
 
 
 def submit_assignment(request):
+    # 1. Fetch courses ALWAYS, so they are available for the dropdown
+    courses = Course.objects.filter(assessment_type='ASSIGNMENT')
+
     if request.method == 'POST':
-        # Get the uploaded file
+        student_name = request.POST.get('student_name')
+        index_number = request.POST.get('index_number')
+        course_id = request.POST.get('course_id') # Changed from assignment_id to match your previous code
         file = request.FILES.get('file')
 
-        # Create the submission instance
+        # 2. CHECK FOR DUPLICATE SUBMISSION
+        if StudentSubmission.objects.filter(index_number=index_number, course_id=course_id).exists():
+            messages.error(request, "You have already submitted an assignment for this course.")
+            return render(request, 'quiz/submit.html', {'courses': courses})
+
+        # 3. VALIDATE FILE
+        if not file:
+            messages.error(request, "Please select a file to upload.")
+            return render(request, 'quiz/submit.html', {'courses': courses})
+
+        # 4. SAVE SUBMISSION
         submission = StudentSubmission(
-            student_name=request.POST.get('student_name'),
-            index_number=request.POST.get('index_number'),
-            course_id=request.POST.get('course_id'),
+            student_name=student_name,
+            index_number=index_number,
+            course_id=course_id,
             submission_type='ASSIGNMENT',
-            # Read file into binary data and store name
-            file_data=file.read() if file else None,
-            file_name=file.name if file else None
+            file_data=file.read(),
+            file_name=file.name
         )
         submission.save()
 
         messages.success(request, "Assignment submitted successfully!")
-        return render(request, 'quiz/submitted.html')  # Ensure you have this template
+        return render(request, 'quiz/submitted.html')
 
-    # Only show courses that are 'ASSIGNMENT' type in the dropdown
-    courses = Course.objects.filter(assessment_type='ASSIGNMENT')
+    # 5. RENDER PAGE FOR GET REQUESTS
     return render(request, 'quiz/submit.html', {'courses': courses})
 
 
