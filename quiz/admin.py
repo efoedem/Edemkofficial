@@ -48,11 +48,13 @@ class StudentSubmissionAdmin(admin.ModelAdmin):
     get_exam_name.short_description = 'Exam Name'
 
     def download_link(self, obj):
-        if obj.file_data:
-            # Matches the 'download_submission' name in urls.py
-            url = reverse('download_submission', args=[obj.id])
-            return format_html('<a href="{}">Download File</a>', url)
+        # Check if the file field has data (CloudinaryField stores the URL)
+        if obj.file:
+            # CloudinaryField provides a .url attribute to access the file directly
+            return format_html('<a href="{}" target="_blank">Download File</a>', obj.file.url)
         return "No File"
+
+    download_link.short_description = "File"
 
     download_link.short_description = "File"
 
@@ -65,16 +67,26 @@ class StudentSubmissionAdmin(admin.ModelAdmin):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="student_results.csv"'
         writer = csv.writer(response)
-        writer.writerow(['Student Name', 'Index Number', 'Course', 'Exam Type', 'Score', 'Submitted At'])
+
+        # Add 'File URL' to the header
+        writer.writerow(['Student Name', 'Index Number', 'Course', 'Exam Type', 'Score', 'Submitted At', 'File URL'])
+
         for obj in queryset:
+            # Handle cases where the file might be missing
+            file_url = obj.file.url if obj.file else "No File"
+
             writer.writerow([
-                obj.student_name, obj.index_number, obj.course.title,
-                obj.course.exam_name, obj.score, obj.submitted_at.strftime("%Y-%m-%d %H:%M")
+                obj.student_name,
+                obj.index_number,
+                obj.course.title,
+                obj.course.exam_name,
+                obj.score,
+                obj.submitted_at.strftime("%Y-%m-%d %H:%M"),
+                file_url
             ])
         return response
 
     export_to_csv.short_description = "Download Selected as Excel (CSV)"
-
 
 # ==========================================
 # 3. COURSE ADMIN (FIXED INDENTATION / UN-NESTED)
