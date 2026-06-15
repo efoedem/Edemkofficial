@@ -3,7 +3,9 @@ from django.urls import path
 from django.core.management import call_command
 from django.http import HttpResponse
 from django.contrib.auth.models import User
-from quiz import views
+from quiz import views  # Ensure this is present
+# Add this specific import:
+from quiz.views import download_submission
 
 # Set clear system titles without breaking the framework code structure
 admin.site.site_header = "EDEM QUIZ PLATFORM"
@@ -66,6 +68,5 @@ urlpatterns = [
     path('bulk-upload-students/', views.upload_allowed_students, name='upload_allowed_students'),
     path('logout/', views.logout_portal, name='logout'),
     path('submit/', views.submit_assignment, name='submit_assignment'),
-path('download/<int:submission_id>/', download_submission, name='download_submission'),
-
-]
+    path('download/<int:submission_id>/', download_submission, name='download_submission'),
+    ]
