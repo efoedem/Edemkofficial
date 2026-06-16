@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-9#zrm%rmp)1mmqmh11yk+e)i+cbw-cmwuu)#_f20nz)ubx(3hy'
 
 # 🛑 FIXED: Changed from string 'False' to actual Python Boolean False
-DEBUG = False
+DEBUG = True
 
 # Clean up hosts to prevent wildcard bypasses crashing session scopes
 ALLOWED_HOSTS = ['uenn.vercel.app', '127.0.0.1', 'localhost', '.vercel.app']
